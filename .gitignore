@@ -1,0 +1,28 @@
+# Bridge Point
+
+## Backend (Python/FastAPI)
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+data/
+*.db
+.env
+venv/
+.venv/
+
+## Frontend (Next.js)
+node_modules/
+.next/
+out/
+.vercel/
+
+## IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

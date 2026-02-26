@@ -1,0 +1,538 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bp-black: #1d1d1f;
+  --color-bp-gray-900: #1d1d1f;
+  --color-bp-gray-700: #424245;
+  --color-bp-gray-500: #6e6e73;
+  --color-bp-gray-300: #d2d2d7;
+  --color-bp-gray-200: #e8e8ed;
+  --color-bp-gray-100: #f5f5f7;
+  --color-bp-white: #fbfbfd;
+  --color-bp-blue: #0071e3;
+  --color-bp-blue-hover: #0077ed;
+  --color-bp-green: #28cd41;
+  --color-bp-orange: #ff9f0a;
+  --color-bp-red: #ff3b30;
+  --color-bp-violet: #af52de;
+  --color-bp-teal: #5ac8fa;
+  --font-family-display:
+    "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --font-family-body:
+    "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+}
+
+/* ─── Base Reset ─── */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-body);
+  color: var(--color-bp-black);
+  background: var(--color-bp-white);
+}
+
+/* ─── Apple-style Typography ─── */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-family-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Glassmorphism Header ─── */
+.glass-header {
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: rgba(251, 251, 253, 0.72);
+}
+
+/* ─── Button Styles ─── */
+.btn-primary {
+  background: var(--color-bp-blue);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 980px;
+  font-size: 17px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary:hover {
+  background: var(--color-bp-blue-hover);
+  transform: scale(1.02);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-bp-blue);
+  padding: 12px 24px;
+  border-radius: 980px;
+  font-size: 17px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid var(--color-bp-blue);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-secondary:hover {
+  background: var(--color-bp-blue);
+  color: white;
+}
+
+/* ─── Card Styles ─── */
+.card {
+  background: white;
+  border: 1px solid var(--color-bp-gray-200);
+  border-radius: 20px;
+  padding: 24px;
+  transition: all 0.3s ease;
+}
+.card:hover {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+/* ─── Input Styles ─── */
+.input-field {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--color-bp-gray-300);
+  border-radius: 12px;
+  font-size: 17px;
+  transition: all 0.2s ease;
+  background: white;
+  outline: none;
+}
+.input-field:focus {
+  border-color: var(--color-bp-blue);
+  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+}
+.input-field::placeholder {
+  color: var(--color-bp-gray-500);
+}
+
+/* ─── Select Styles ─── */
+.select-field {
+  width: 100%;
+  padding: 14px 18px;
+  border: 1px solid var(--color-bp-gray-300);
+  border-radius: 12px;
+  font-size: 17px;
+  transition: all 0.2s ease;
+  background: white;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236e6e73' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+}
+.select-field:focus {
+  border-color: var(--color-bp-blue);
+  box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1);
+}
+
+/* ─── Animations ─── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.stagger-1 {
+  animation-delay: 0.1s;
+}
+.stagger-2 {
+  animation-delay: 0.2s;
+}
+.stagger-3 {
+  animation-delay: 0.3s;
+}
+.stagger-4 {
+  animation-delay: 0.4s;
+}
+
+/* ═══════════════════════════════════════════════════════
+   In-App Calling System Styles
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Call Overlay ─── */
+.call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ─── Toast animation ─── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.call-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+}
+
+.call-overlay-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 40px;
+  max-width: 380px;
+  width: 90%;
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Avatar ─── */
+.call-avatar {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.call-avatar-circle {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0071e3 0%, #5ac8fa 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 8px 32px rgba(0, 113, 227, 0.3);
+}
+
+.call-avatar-letter {
+  font-size: 36px;
+  font-weight: 600;
+  color: white;
+  font-family: var(--font-family-display);
+}
+
+/* ─── Pulse Rings (ringing/outgoing) ─── */
+.call-pulse-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 113, 227, 0.4);
+  animation: pulseRing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.call-pulse-ring-1 {
+  animation-delay: 0s;
+}
+.call-pulse-ring-2 {
+  animation-delay: 0.5s;
+}
+.call-pulse-ring-3 {
+  animation-delay: 1s;
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* ─── Text ─── */
+.call-peer-name {
+  font-size: 28px;
+  font-weight: 600;
+  color: white;
+  letter-spacing: -0.02em;
+  text-align: center;
+  margin: 0;
+}
+
+.call-status-label {
+  font-size: 17px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.call-job-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 6px 14px;
+  border-radius: 980px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+/* ─── Waveform (active call) ─── */
+.call-waveform {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin: 8px 0;
+}
+
+.call-waveform-bar {
+  width: 4px;
+  border-radius: 4px;
+  background: rgba(0, 113, 227, 0.8);
+  animation: waveform 1.2s ease-in-out infinite;
+}
+
+@keyframes waveform {
+  0%,
+  100% {
+    height: 8px;
+    opacity: 0.5;
+  }
+  50% {
+    height: 28px;
+    opacity: 1;
+  }
+}
+
+/* ─── Action Buttons ─── */
+.call-actions {
+  display: flex;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.call-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s ease;
+}
+
+.call-action-btn:hover {
+  transform: scale(1.08);
+}
+
+.call-action-btn:active {
+  transform: scale(0.95);
+}
+
+.call-action-accept {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #28cd41;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(40, 205, 65, 0.4);
+  flex-direction: row;
+  gap: 0;
+}
+.call-action-accept .call-action-label {
+  display: none;
+}
+.call-action-accept:hover {
+  background: #2ed84a;
+}
+
+.call-action-decline {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #ff3b30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(255, 59, 48, 0.4);
+  flex-direction: row;
+  gap: 0;
+}
+.call-action-decline .call-action-label {
+  display: none;
+}
+.call-action-decline:hover {
+  background: #ff453a;
+}
+
+.call-action-mute,
+.call-action-muted {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  gap: 0;
+}
+.call-action-mute {
+  background: rgba(255, 255, 255, 0.15);
+}
+.call-action-muted {
+  background: rgba(255, 159, 10, 0.5);
+}
+.call-action-mute .call-action-label,
+.call-action-muted .call-action-label {
+  display: none;
+}
+
+.call-action-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+/* ─── Connection Info ─── */
+.call-connection-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 16px;
+}
+
+.call-connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #28cd41;
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* ─── Slide Up Animation ─── */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ─── Call Buttons (inline) ─── */
+.call-button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #28cd41;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(40, 205, 65, 0.3);
+}
+.call-button-icon:hover {
+  background: #2ed84a;
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(40, 205, 65, 0.4);
+}
+
+.call-button-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 980px;
+  background: #28cd41;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(40, 205, 65, 0.3);
+}
+.call-button-full:hover {
+  background: #2ed84a;
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(40, 205, 65, 0.4);
+}
+
+.call-button-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}

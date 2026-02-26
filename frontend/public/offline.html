@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BridgePoint — Offline</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          sans-serif;
+        background: #f5f5f7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+      .container {
+        text-align: center;
+        padding: 2rem;
+      }
+      .icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1d1d1f;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        color: #86868b;
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      button {
+        background: #0071e3;
+        color: white;
+        border: none;
+        padding: 12px 32px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0077ed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon">📡</div>
+      <h1>You're Offline</h1>
+      <p>Check your internet connection and try again.</p>
+      <button onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>
