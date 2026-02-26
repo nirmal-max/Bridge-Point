@@ -1,6 +1,13 @@
 /* ─── Bridge Point — API Client ─── */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+let API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+// Ensure API_BASE is an absolute URL
+if (API_BASE && !API_BASE.startsWith('http')) {
+  API_BASE = `https://${API_BASE}`;
+}
+// Remove trailing slash to prevent double-slashes in requests
+API_BASE = API_BASE.replace(/\/$/, '');
 
 class ApiClient {
   private getToken(): string | null {
