@@ -37,9 +37,11 @@ app = FastAPI(
 )
 
 # ─── CORS Middleware ────────────────────────────────────
+# In a real production app, you'd want to restrict origins,
+# but for testing and Vercel preview URLs, we allow all for now.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
