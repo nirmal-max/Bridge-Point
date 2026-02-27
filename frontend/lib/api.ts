@@ -1,12 +1,15 @@
 /* ─── Bridge Point — API Client ─── */
 
-let API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+// In production (Vercel), use the /backend proxy to avoid DNS/CORS issues.
+// Locally, use the direct backend URL.
+const isServer = typeof window === "undefined";
+const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
 
-// Ensure API_BASE is an absolute URL
-if (API_BASE && !API_BASE.startsWith('http')) {
-  API_BASE = `https://${API_BASE}`;
-}
-// Remove trailing slash to prevent double-slashes in requests
+let API_BASE = isProduction
+  ? "/backend"  // Vercel rewrite proxies this to Railway
+  : (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000");
+
+// Remove trailing slash
 API_BASE = API_BASE.replace(/\/$/, '');
 
 class ApiClient {

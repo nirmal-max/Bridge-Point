@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/backend/:path*",
+      "destination": "https://bridge-point-production.up.railway.app/:path*"
+    }
+  ]
+}
