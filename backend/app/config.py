@@ -13,11 +13,14 @@ DATABASE_DIR = BASE_DIR / "data"
 DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── Database ───────────────────────────────────────────
-# SQLite for local dev; swap to PostgreSQL URI for production
-DATABASE_URL: str = os.getenv(
-    "DATABASE_URL",
-    f"sqlite:///{DATABASE_DIR / 'bridgepoint.db'}"
-)
+# SQLite for local dev; set DATABASE_URL env var for Supabase PostgreSQL
+_db_url = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_DIR / 'bridgepoint.db'}")
+
+# Supabase/Heroku use 'postgres://' but SQLAlchemy requires 'postgresql://'
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+
+DATABASE_URL: str = _db_url
 
 # ─── JWT ────────────────────────────────────────────────
 JWT_SECRET_KEY: str = os.getenv(
@@ -42,6 +45,8 @@ CORS_ORIGINS: list[str] = [
 ] if _cors_env else [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
 ]
 
 # ─── Application ────────────────────────────────────────

@@ -12,13 +12,23 @@ from app.config import DATABASE_URL
 
 # ─── Engine Setup ───────────────────────────────────────
 connect_args = {}
+engine_kwargs = {"echo": False}
+
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+else:
+    # PostgreSQL (Supabase) connection pool settings
+    engine_kwargs.update({
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_pre_ping": True,      # Auto-reconnect stale connections
+        "pool_recycle": 300,         # Recycle connections every 5 minutes
+    })
 
 engine = create_engine(
     DATABASE_URL,
     connect_args=connect_args,
-    echo=False,
+    **engine_kwargs,
 )
 
 # Enable WAL mode and foreign keys for SQLite
