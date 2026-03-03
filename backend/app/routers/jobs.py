@@ -297,11 +297,11 @@ def update_job_status(
                     detail="Only the assigned worker can advance this stage.",
                 )
         elif current_status == JobStatus.WORK_IN_PROGRESS:
-            # Either employer or assigned labor can mark work completed
-            if not is_employer and not is_assigned_labor and not is_admin:
+            # Only employer (or admin) can mark work as completed
+            if not is_employer and not is_admin:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Only the employer or assigned worker can mark work as completed.",
+                    detail="Only the employer can mark work as completed.",
                 )
     else:
         # Payment transitions should use dedicated payment endpoints

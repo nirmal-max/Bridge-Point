@@ -10,6 +10,7 @@ Flow:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
@@ -131,15 +132,20 @@ def initiate_payment(
 
 # ─── 2. Employer: Mark Payment Sent ─────────────────────
 
+class MarkPaymentSentBody(BaseModel):
+    upi_reference: str | None = None  # UPI Transaction Reference (UTI)
+
 @router.post("/{job_id}/mark-sent")
 async def mark_payment_sent(
     job_id: int,
+    body: MarkPaymentSentBody = MarkPaymentSentBody(),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_employer),
 ):
     """
     Employer confirms they have sent payment to Platform UPI.
     Transitions: payment_in_process → verification_pending.
+    Optionally stores the UPI Transaction Reference (UTI).
     """
     job = db.query(Job).filter(Job.id == job_id, Job.employer_id == current_user.id).first()
     if not job:
@@ -165,6 +171,12 @@ async def mark_payment_sent(
     job.payment_status = "verification_pending"
     job.payment_sent_at = now
     job.updated_at = now
+
+    # Store UTI reference in commission ledger if provided
+    if body.upi_reference:
+        ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
+        if ledger:
+            ledger.upi_reference = body.upi_reference.strip()
 
     db.commit()
 

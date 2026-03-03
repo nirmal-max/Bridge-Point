@@ -15,11 +15,14 @@ import ProgressBar from "@/components/ProgressBar";
 import ChatPanel from "@/components/ChatPanel";
 
 // Who can trigger each work stage transition
-const NEXT_STATUS: Record<string, { target: string; allowedRole: "labor" | "both" }> = {
+const NEXT_STATUS: Record<string, { target: string; allowedRole: "labor" | "employer" | "both" }> = {
   labour_allotted: { target: "work_started", allowedRole: "labor" },
   work_started: { target: "work_in_progress", allowedRole: "labor" },
-  work_in_progress: { target: "work_completed", allowedRole: "both" },
+  work_in_progress: { target: "work_completed", allowedRole: "employer" },
 };
+
+// Statuses during which calling is allowed between employer and assigned labor
+const CALL_ENABLED_STATUSES = ["labour_allotted", "work_started", "work_in_progress"];
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -31,6 +34,7 @@ export default function JobDetailPage() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "cash">("upi");
+  const [upiRef, setUpiRef] = useState("");
 
   const jobId = Number(id);
 
@@ -114,7 +118,7 @@ export default function JobDetailPage() {
   const handleMarkSent = async () => {
     setActionLoading(true);
     try {
-      await api.markPaymentSent(jobId);
+      await api.markPaymentSent(jobId, upiRef || undefined);
       const j = await api.getJob(jobId);
       setJob(j);
       setToast("Payment marked as sent. Awaiting verification.");
@@ -200,6 +204,8 @@ export default function JobDetailPage() {
         ? isAllottedLabor
         : isOwner
   );
+
+  const canCall = CALL_ENABLED_STATUSES.includes(job.status);
 
   return (
     <div className="pt-14 min-h-screen bg-[var(--color-bp-gray-100)]">
@@ -327,12 +333,14 @@ export default function JobDetailPage() {
                   </div>
                 )}
               </div>
-              <CallButton
-                userId={job.allotted_labor_id}
-                userName={job.allotted_labor_name}
-                jobId={job.id}
-                variant="full"
-              />
+              {canCall && (
+                <CallButton
+                  userId={job.allotted_labor_id}
+                  userName={job.allotted_labor_name}
+                  jobId={job.id}
+                  variant="full"
+                />
+              )}
             </div>
           </div>
         )}
@@ -495,6 +503,23 @@ export default function JobDetailPage() {
               </div>
               <div className="text-xs text-[var(--color-bp-gray-500)] mb-4">
                 Platform Commission: ₹{job.platform_commission.toFixed(2)} · Worker Payout: ₹{job.worker_payout.toFixed(2)}
+              </div>
+
+              {/* UTI Reference Input */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-[var(--color-bp-gray-700)] mb-1.5 text-left">
+                  UPI Transaction Reference (UTI)
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Enter 12-digit UPI reference number"
+                  value={upiRef}
+                  onChange={(e) => setUpiRef(e.target.value)}
+                />
+                <p className="text-xs text-[var(--color-bp-gray-500)] mt-1 text-left">
+                  You can find this in your UPI app under transaction details.
+                </p>
               </div>
 
               <button

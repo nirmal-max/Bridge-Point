@@ -310,10 +310,13 @@ class ApiClient {
     });
   }
 
-  markPaymentSent(jobId: number) {
+  markPaymentSent(jobId: number, upiReference?: string) {
     return this.request<{ message: string; status: string; payment_sent_at: string }>(
       `/api/payments/${jobId}/mark-sent`,
-      { method: "POST" }
+      {
+        method: "POST",
+        body: JSON.stringify({ upi_reference: upiReference || null }),
+      }
     );
   }
 

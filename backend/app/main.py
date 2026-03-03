@@ -31,9 +31,10 @@ from app.models.status_transition import StatusTransition
 from app.models.call import CallLog
 from app.models.message import Message
 from app.models.private_request import PrivateRequest
+from app.models.password_reset import PasswordReset
 
 # Import routers
-from app.routers import auth, jobs, applications, reviews, favorites, payments, websocket, calls, messages, private_requests
+from app.routers import auth, jobs, applications, reviews, favorites, payments, websocket, calls, messages, private_requests, password_reset
 
 # ─── Create tables ──────────────────────────────────────
 Base.metadata.create_all(bind=engine)
@@ -60,6 +61,7 @@ app.add_middleware(
 
 # ─── Register Routers ──────────────────────────────────
 app.include_router(auth.router)
+app.include_router(password_reset.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
 app.include_router(reviews.router)

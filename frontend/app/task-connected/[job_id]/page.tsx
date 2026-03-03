@@ -97,12 +97,14 @@ export default function TaskConnectedPage() {
                 Posted this task
               </div>
             </div>
-            <CallButton
-              userId={job.employer_id}
-              userName={job.employer_name || "Employer"}
-              jobId={job.id}
-              variant="full"
-            />
+            {["labour_allotted", "work_started", "work_in_progress"].includes(job.status) && (
+              <CallButton
+                userId={job.employer_id}
+                userName={job.employer_name || "Employer"}
+                jobId={job.id}
+                variant="full"
+              />
+            )}
           </div>
         </div>
 

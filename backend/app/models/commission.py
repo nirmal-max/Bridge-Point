@@ -29,6 +29,7 @@ class CommissionLedger(Base):
     # ─── Payment Details ────────────────────────────────
     payment_method = Column(String(20), nullable=True)  # "upi" or "cash"
     payment_status = Column(String(20), default="pending")  # pending, completed
+    upi_reference = Column(String(100), nullable=True)  # UPI Transaction Reference (UTI)
 
     # ─── Timestamps ──────────────────────────────────────
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

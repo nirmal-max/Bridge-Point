@@ -48,6 +48,8 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
         skills=json.dumps(payload.skills) if payload.skills else None,
         city=payload.city,
         bio=payload.bio,
+        email_verified=True,   # Auto-verified for MVP; enforce real OTP when provider is integrated
+        phone_verified=True,   # Auto-verified for MVP; enforce real OTP when provider is integrated
     )
 
     db.add(user)
