@@ -17,12 +17,7 @@ router = APIRouter(tags=["WebSocket"])
 
 def _get_db():
     """Create a database session for WebSocket handlers."""
-    db = SessionLocal()
-    try:
-        return db
-    except Exception:
-        db.close()
-        raise
+    return SessionLocal()
 
 
 @router.websocket("/ws/{token}")

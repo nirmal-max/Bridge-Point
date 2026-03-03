@@ -119,4 +119,5 @@ class Job(Base):
     __table_args__ = (
         Index("ix_jobs_status_employer", "status", "employer_id"),
         Index("ix_jobs_payment_status", "payment_status"),
+        Index("ix_jobs_created_at", "created_at"),
     )

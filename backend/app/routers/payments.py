@@ -310,7 +310,7 @@ def get_pending_payments(
     """Admin: list all jobs awaiting verification or payout."""
     pending_statuses = [
         JobStatus.VERIFICATION_PENDING.value,
-        JobStatus.VERIFIED.value,
+        JobStatus.PAYOUT_RELEASED.value,
     ]
     jobs = (
         db.query(Job)

@@ -14,10 +14,11 @@ import CallButton from "@/components/CallButton";
 import ProgressBar from "@/components/ProgressBar";
 import ChatPanel from "@/components/ChatPanel";
 
-const NEXT_STATUS: Record<string, string> = {
-  labour_allotted: "work_started",
-  work_started: "work_in_progress",
-  work_in_progress: "work_completed",
+// Who can trigger each work stage transition
+const NEXT_STATUS: Record<string, { target: string; allowedRole: "labor" | "both" }> = {
+  labour_allotted: { target: "work_started", allowedRole: "labor" },
+  work_started: { target: "work_in_progress", allowedRole: "labor" },
+  work_in_progress: { target: "work_completed", allowedRole: "both" },
 };
 
 export default function JobDetailPage() {
@@ -190,7 +191,15 @@ export default function JobDetailPage() {
   // 3. User is NOT already the assigned labor
   // 4. Job is in 'posted' status
   const canAccept = user && !isOwner && !isAllottedLabor && job.status === "posted";
-  const nextStatus = NEXT_STATUS[job.status];
+  const nextInfo = NEXT_STATUS[job.status];
+  // Only show transition button to the correct party
+  const canAdvance = nextInfo && (
+    nextInfo.allowedRole === "both"
+      ? (isOwner || isAllottedLabor)
+      : nextInfo.allowedRole === "labor"
+        ? isAllottedLabor
+        : isOwner
+  );
 
   return (
     <div className="pt-14 min-h-screen bg-[var(--color-bp-gray-100)]">
@@ -402,16 +411,16 @@ export default function JobDetailPage() {
             </div>
           )}
 
-          {/* Status Transitions (work stages: allotted → started → in_progress → completed) */}
-          {(isOwner || isAllottedLabor) && nextStatus && (
+          {/* Status Transitions (work stages — role-scoped) */}
+          {canAdvance && nextInfo && (
             <button
-              onClick={() => handleTransition(nextStatus)}
+              onClick={() => handleTransition(nextInfo.target)}
               disabled={actionLoading}
               className="btn-primary w-full !py-4"
             >
               {actionLoading
                 ? "Updating..."
-                : `Mark as: ${STATUS_LABELS[nextStatus as keyof typeof STATUS_LABELS]}`}
+                : `Mark as: ${STATUS_LABELS[nextInfo.target as keyof typeof STATUS_LABELS]}`}
             </button>
           )}
 

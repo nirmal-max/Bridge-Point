@@ -26,12 +26,12 @@ def apply_to_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_labor),
 ):
-    """Labor applies to a job. Job must be in 'posted' or 'waiting' status."""
+    """Labor applies to a job. Job must be in 'posted' status."""
     job = db.query(Job).filter(Job.id == payload.job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if job.status not in [JobStatus.POSTED.value, JobStatus.WAITING.value]:
+    if job.status != JobStatus.POSTED.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Job is not accepting applications",
@@ -56,17 +56,7 @@ def apply_to_job(
             detail="You have already applied to this job",
         )
 
-    # If job is still "posted", transition to "waiting"
-    if job.status == JobStatus.POSTED.value:
-        job.status = JobStatus.WAITING.value
-        job.updated_at = datetime.now(timezone.utc)
-        transition = StatusTransition(
-            job_id=job.id,
-            from_status=JobStatus.POSTED.value,
-            to_status=JobStatus.WAITING.value,
-            changed_by_user_id=current_user.id,
-        )
-        db.add(transition)
+    # Job stays in "posted" status until employer accepts an application
 
     application = Application(
         job_id=payload.job_id,
@@ -120,15 +110,42 @@ def accept_application(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found or not yours")
 
-    if job.status != JobStatus.WAITING.value:
+    if job.status != JobStatus.POSTED.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Job must be in 'waiting' status to accept applications. Current: {job.status}",
+            detail=f"Job must be in 'posted' status to accept applications. Current: {job.status}",
+        )
+
+    # Atomic: ensure no one else already claimed the job
+    now = datetime.now(timezone.utc)
+    from sqlalchemy import text
+    result = db.execute(
+        text(
+            "UPDATE jobs SET allotted_labor_id = :labor_id, "
+            "status = :new_status, accepted_at = :accepted_at, "
+            "updated_at = :updated_at "
+            "WHERE id = :job_id AND allotted_labor_id IS NULL AND status = :posted_status"
+        ),
+        {
+            "labor_id": application.labor_id,
+            "new_status": JobStatus.LABOUR_ALLOTTED.value,
+            "accepted_at": now,
+            "updated_at": now,
+            "job_id": job.id,
+            "posted_status": JobStatus.POSTED.value,
+        },
+    )
+
+    if result.rowcount == 0:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Job already accepted by someone else.",
         )
 
     # Accept this application
     application.status = ApplicationStatus.ACCEPTED
-    application.updated_at = datetime.now(timezone.utc)
+    application.updated_at = now
 
     # Reject all other pending applications
     other_apps = (
@@ -142,29 +159,16 @@ def accept_application(
     )
     for app in other_apps:
         app.status = ApplicationStatus.REJECTED
-        app.updated_at = datetime.now(timezone.utc)
+        app.updated_at = now
 
-    # Transition: waiting → accepted
-    transition1 = StatusTransition(
+    # Log transition: posted → labour_allotted
+    transition = StatusTransition(
         job_id=job.id,
-        from_status=JobStatus.WAITING.value,
-        to_status=JobStatus.ACCEPTED.value,
-        changed_by_user_id=current_user.id,
-    )
-    db.add(transition1)
-    job.status = JobStatus.ACCEPTED.value
-
-    # Transition: accepted → labour_allotted
-    transition2 = StatusTransition(
-        job_id=job.id,
-        from_status=JobStatus.ACCEPTED.value,
+        from_status=JobStatus.POSTED.value,
         to_status=JobStatus.LABOUR_ALLOTTED.value,
         changed_by_user_id=current_user.id,
     )
-    db.add(transition2)
-    job.status = JobStatus.LABOUR_ALLOTTED.value
-    job.allotted_labor_id = application.labor_id
-    job.updated_at = datetime.now(timezone.utc)
+    db.add(transition)
 
     db.commit()
     db.refresh(application)
@@ -193,13 +197,14 @@ def get_labor_history(
     current_user: User = Depends(require_labor),
 ):
     """Labor: view completed task history."""
+    history_statuses = [JobStatus.PAYOUT_RELEASED.value, JobStatus.PAYMENT_COMPLETED.value]
     apps = (
         db.query(Application)
         .join(Job)
         .filter(
             Application.labor_id == current_user.id,
             Application.status == ApplicationStatus.ACCEPTED,
-            Job.status == JobStatus.PAYMENT_RECEIVED.value,
+            Job.status.in_(history_statuses),
         )
         .order_by(Job.updated_at.desc())
         .all()

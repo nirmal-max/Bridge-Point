@@ -248,7 +248,11 @@ def update_job_status(
     """
     Transition job status.
     STRICT STATE MACHINE: only valid forward transitions allowed.
-    Invalid transitions return HTTP 400.
+    AUTHORIZATION: enforced per stage:
+      - labour_allotted → work_started: assigned labor only
+      - work_started → work_in_progress: assigned labor only
+      - work_in_progress → work_completed: employer or assigned labor
+    Payment stages are handled by dedicated payment endpoints.
     """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
@@ -271,6 +275,41 @@ def update_job_status(
             detail=f"Invalid transition: {current_status.value} → {target_status.value}. "
                    f"No skipping allowed.",
         )
+
+    # ─── AUTHORIZATION: who can trigger each transition ──────
+    is_employer = current_user.id == job.employer_id
+    is_assigned_labor = current_user.id == job.allotted_labor_id
+    is_admin = current_user.is_admin
+
+    # Work stages: only assigned labor or employer can advance
+    work_transitions = {
+        JobStatus.LABOUR_ALLOTTED: JobStatus.WORK_STARTED,      # labor starts work
+        JobStatus.WORK_STARTED: JobStatus.WORK_IN_PROGRESS,     # labor confirms in-progress
+        JobStatus.WORK_IN_PROGRESS: JobStatus.WORK_COMPLETED,   # employer or labor marks done
+    }
+
+    if current_status in work_transitions:
+        if current_status in (JobStatus.LABOUR_ALLOTTED, JobStatus.WORK_STARTED):
+            # Only assigned labor can start/progress work
+            if not is_assigned_labor and not is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only the assigned worker can advance this stage.",
+                )
+        elif current_status == JobStatus.WORK_IN_PROGRESS:
+            # Either employer or assigned labor can mark work completed
+            if not is_employer and not is_assigned_labor and not is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only the employer or assigned worker can mark work as completed.",
+                )
+    else:
+        # Payment transitions should use dedicated payment endpoints
+        if not is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Payment stage transitions must use the payment endpoints.",
+            )
 
     # Log the transition with timestamp
     transition = StatusTransition(

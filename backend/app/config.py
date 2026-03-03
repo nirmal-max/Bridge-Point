@@ -33,10 +33,11 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv(
 ))
 
 # ─── Commission ────────────────────────────────────────
-# Locked: 3% employer side, 3% labor side, 6% platform total
-COMMISSION_RATE_EMPLOYER: float = 0.03
-COMMISSION_RATE_LABOR: float = 0.03
-COMMISSION_RATE_PLATFORM: float = 0.06
+# Platform Custody Model: 3% retained from budget
+# Worker payout = budget × 0.97, Platform commission = budget × 0.03
+COMMISSION_RATE_EMPLOYER: float = 0.00   # No extra employer surcharge
+COMMISSION_RATE_LABOR: float = 0.00      # No labor-side deduction
+COMMISSION_RATE_PLATFORM: float = 0.03   # 3% platform custody fee
 
 # ─── CORS ───────────────────────────────────────────────
 _cors_env = os.getenv("CORS_ORIGINS", "")
