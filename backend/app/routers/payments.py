@@ -71,6 +71,21 @@ def initiate_payment(
             detail="No labor allotted to this job",
         )
 
+    # Idempotency: if ledger already exists for this job, return existing info
+    existing_ledger = db.query(CommissionLedger).filter(
+        CommissionLedger.job_id == job.id
+    ).first()
+    if existing_ledger:
+        return {
+            "message": "Payment already initiated. Pay to Platform UPI.",
+            "status": job.status,
+            "platform_upi_id": PLATFORM_UPI_ID,
+            "platform_upi_name": PLATFORM_UPI_NAME,
+            "amount": job.budget_paise / 100,
+            "platform_commission": job.platform_commission_paise / 100,
+            "worker_payout": job.worker_payout_paise / 100,
+        }
+
     # Create commission ledger
     ledger = CommissionLedger(
         job_id=job.id,

@@ -15,11 +15,11 @@ floating-point rounding issues in financial calculations.
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 
-from app.config import COMMISSION_RATE_EMPLOYER, COMMISSION_RATE_LABOR
+from app.config import COMMISSION_RATE_PLATFORM
 
 
-# Platform custody rate: 3% retained from budget
-PLATFORM_CUSTODY_RATE = Decimal("0.03")
+# Platform custody rate: sourced from config (default 3%)
+PLATFORM_CUSTODY_RATE = Decimal(str(COMMISSION_RATE_PLATFORM))
 
 
 @dataclass(frozen=True)

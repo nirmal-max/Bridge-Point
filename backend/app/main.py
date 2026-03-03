@@ -6,8 +6,19 @@ FastAPI application entry point.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import APP_NAME, APP_VERSION, APP_DESCRIPTION, CORS_ORIGINS
+import logging
+from app.config import APP_NAME, APP_VERSION, APP_DESCRIPTION, CORS_ORIGINS, JWT_SECRET_KEY
 from app.database import engine, Base
+
+_logger = logging.getLogger(__name__)
+
+# ─── Security check: warn if using default JWT secret ───
+_DEFAULT_SECRET = "bridgepoint-dev-secret-key-change-in-production-2026"
+if JWT_SECRET_KEY == _DEFAULT_SECRET:
+    _logger.warning(
+        "⚠️  JWT_SECRET_KEY is set to the default dev value! "
+        "Set the JWT_SECRET_KEY environment variable to a secure random string for production."
+    )
 
 # Import all models so they register with Base.metadata
 from app.models.user import User

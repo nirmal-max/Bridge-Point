@@ -37,6 +37,13 @@ class ApiClient {
     });
 
     if (!res.ok) {
+      // Token expired or invalid — clear auth and redirect to login
+      if (res.status === 401 && typeof window !== "undefined") {
+        localStorage.removeItem("bp_token");
+        localStorage.removeItem("bp_user");
+        window.location.href = "/login";
+        throw new Error("Session expired. Please log in again.");
+      }
       const err = await res.json().catch(() => ({ detail: res.statusText }));
       throw new Error(err.detail || `API Error: ${res.status}`);
     }

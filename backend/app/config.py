@@ -58,12 +58,24 @@ DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
 
 # ─── WebRTC ICE Servers ────────────────────────────────
 # Free STUN servers for NAT traversal.
-# Add TURN server credentials for production (e.g., Twilio, Metered).
+# Set TURN_URL, TURN_USERNAME, TURN_CREDENTIAL env vars for production
+# (e.g., Twilio, Metered) to support calls behind symmetric NATs.
 ICE_SERVERS: list[dict] = [
     {"urls": "stun:stun.l.google.com:19302"},
     {"urls": "stun:stun1.l.google.com:19302"},
     {"urls": "stun:stun2.l.google.com:19302"},
 ]
+
+# Append TURN server if env vars are configured
+_turn_url = os.getenv("TURN_URL", "")
+_turn_user = os.getenv("TURN_USERNAME", "")
+_turn_cred = os.getenv("TURN_CREDENTIAL", "")
+if _turn_url and _turn_user and _turn_cred:
+    ICE_SERVERS.append({
+        "urls": _turn_url,
+        "username": _turn_user,
+        "credential": _turn_cred,
+    })
 
 # ─── Platform Payment (UPI Custody) ───────────────────
 PLATFORM_UPI_ID: str = os.getenv("PLATFORM_UPI_ID", "bridgepoint@upi")
