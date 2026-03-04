@@ -1,29 +1,35 @@
 """
 Bridge Point — Email Service
-Sends transactional emails via Gmail SMTP.
+Sends transactional emails via Resend HTTP API (HTTPS port 443).
+Railway blocks SMTP (ports 465/587), so we use HTTP-based email instead.
 
-Required env vars:
-  SMTP_EMAIL    — your Gmail address
-  SMTP_PASSWORD — Gmail App Password (NOT your regular password)
+Required env var:
+  RESEND_API_KEY — get from https://resend.com/api-keys
 """
 
-import smtplib
-import ssl
 import logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import urllib.request
+import urllib.error
+import json
 
-from app.config import SMTP_EMAIL, SMTP_PASSWORD
+from app.config import RESEND_API_KEY, SMTP_EMAIL
 
 _logger = logging.getLogger(__name__)
 
+RESEND_API_URL = "https://api.resend.com/emails"
+
 
 def send_otp_email(to_email: str, otp: str) -> bool:
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        _logger.warning("[EMAIL] SMTP not configured. OTP for %s: %s", to_email, otp)
+    """Send a 6-digit OTP via Resend HTTP API. Returns True on success."""
+
+    if not RESEND_API_KEY:
+        _logger.warning("[EMAIL] RESEND_API_KEY not set. OTP for %s: %s", to_email, otp)
         return False
 
-    password = SMTP_PASSWORD.replace(" ", "")
+    # Use the verified sender or Resend's default
+    from_email = SMTP_EMAIL or "BridgePoint <onboarding@resend.dev>"
+    if SMTP_EMAIL and "@" in SMTP_EMAIL:
+        from_email = f"BridgePoint <{SMTP_EMAIL}>"
 
     html_body = f"""
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
@@ -38,33 +44,32 @@ def send_otp_email(to_email: str, otp: str) -> bool:
     </div>
     """
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "BridgePoint — Your Password Reset Code"
-    msg["From"] = f"BridgePoint <{SMTP_EMAIL}>"
-    msg["To"] = to_email
-    msg.attach(MIMEText(f"Your BridgePoint reset code is: {otp}\nExpires in 10 minutes.", "plain"))
-    msg.attach(MIMEText(html_body, "html"))
+    payload = json.dumps({
+        "from": from_email,
+        "to": [to_email],
+        "subject": "BridgePoint — Your Password Reset Code",
+        "html": html_body,
+    }).encode("utf-8")
 
-    # Method 1: SSL on port 465 (works on Railway/cloud)
-    try:
-        _logger.info("[EMAIL] Trying SSL port 465 to %s", to_email)
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=15) as s:
-            s.login(SMTP_EMAIL, password)
-            s.send_message(msg)
-        _logger.info("[EMAIL] ✅ OTP sent to %s via SSL 465", to_email)
-        return True
-    except Exception as e:
-        _logger.warning("[EMAIL] SSL 465 failed: %s — trying TLS 587", str(e))
+    req = urllib.request.Request(
+        RESEND_API_URL,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
 
-    # Method 2: TLS on port 587 (fallback)
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as s:
-            s.starttls(context=ssl.create_default_context())
-            s.login(SMTP_EMAIL, password)
-            s.send_message(msg)
-        _logger.info("[EMAIL] ✅ OTP sent to %s via TLS 587", to_email)
-        return True
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read().decode())
+            _logger.info("[EMAIL] ✅ OTP sent to %s — Resend ID: %s", to_email, result.get("id"))
+            return True
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else str(e)
+        _logger.error("[EMAIL] ❌ Resend API error %d for %s: %s", e.code, to_email, body)
+        return False
     except Exception as e:
-        _logger.error("[EMAIL] ❌ Both methods failed for %s: %s", to_email, str(e))
+        _logger.error("[EMAIL] ❌ Failed for %s: %s", to_email, str(e))
         return False
