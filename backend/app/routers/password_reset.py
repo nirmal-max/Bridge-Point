@@ -47,11 +47,8 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
 
     if not user:
-        # TEMP DEBUG — remove after testing
-        return {
-            "message": "If this email is registered, you will receive a reset code.",
-            "_debug_user_found": False,
-        }
+        # Don't reveal whether email exists
+        return {"message": "If this email is registered, you will receive a reset code."}
 
     # Generate 6-digit OTP
     otp = str(random.randint(100000, 999999))
@@ -78,12 +75,7 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
         import logging
         logging.getLogger(__name__).warning(f"[DEV FALLBACK] OTP for {body.email}: {otp}")
 
-    return {
-        "message": "If this email is registered, you will receive a reset code.",
-        "_debug_user_found": True,
-        "_debug_email_sent": sent,
-        "_debug_email_detail": email_detail,
-    }
+    return {"message": "If this email is registered, you will receive a reset code."}
 
 
 # ─── 2. Verify OTP ────────────────────────────────────
@@ -173,18 +165,3 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
 
     return {"message": "Password reset successfully. You can now log in with your new password."}
 
-
-# ─── DIAGNOSTIC: Test SMTP (remove after debugging) ───
-
-@router.get("/test-smtp")
-def test_smtp():
-    """Temporary diagnostic endpoint."""
-    import os
-    from app.config import RESEND_API_KEY, SMTP_EMAIL
-    return {
-        "resend_api_key_set": bool(RESEND_API_KEY),
-        "resend_key_prefix": RESEND_API_KEY[:8] + "..." if RESEND_API_KEY else "(empty)",
-        "smtp_email": SMTP_EMAIL or "(empty)",
-        "method": "Resend HTTP API (port 443)",
-        "note": "Railway blocks SMTP ports 465/587. Using Resend HTTP API instead.",
-    }
