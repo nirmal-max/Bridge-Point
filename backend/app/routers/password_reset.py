@@ -69,10 +69,12 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     db.add(reset)
     db.commit()
 
-    # TODO: Send OTP via email/SMS provider
-    # For now, log it (REMOVE IN PRODUCTION)
-    import logging
-    logging.getLogger(__name__).warning(f"[DEV ONLY] OTP for {body.email}: {otp}")
+    # Send OTP via email
+    from app.services.email_service import send_otp_email
+    sent = send_otp_email(body.email, otp)
+    if not sent:
+        import logging
+        logging.getLogger(__name__).warning(f"[DEV FALLBACK] OTP for {body.email}: {otp}")
 
     return {"message": "If this email is registered, you will receive a reset code."}
 

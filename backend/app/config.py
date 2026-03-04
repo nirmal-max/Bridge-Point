@@ -32,6 +32,10 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv(
     "JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "1440"  # 24 hours
 ))
 
+# ─── SMTP (Gmail) ──────────────────────────────────────
+SMTP_EMAIL: str = os.getenv("SMTP_EMAIL", "")       # Gmail address
+SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")  # Gmail App Password
+
 # ─── Commission ────────────────────────────────────────
 # Platform Custody Model: 3% retained from budget
 # Worker payout = budget × 0.97, Platform commission = budget × 0.03
