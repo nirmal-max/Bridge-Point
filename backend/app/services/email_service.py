@@ -26,10 +26,9 @@ def send_otp_email(to_email: str, otp: str) -> bool:
         _logger.warning("[EMAIL] RESEND_API_KEY not set. OTP for %s: %s", to_email, otp)
         return False
 
-    # Use the verified sender or Resend's default
-    from_email = SMTP_EMAIL or "BridgePoint <onboarding@resend.dev>"
-    if SMTP_EMAIL and "@" in SMTP_EMAIL:
-        from_email = f"BridgePoint <{SMTP_EMAIL}>"
+    # Resend free tier: MUST use onboarding@resend.dev as sender
+    # To use your own domain, verify it at https://resend.com/domains
+    from_email = "BridgePoint <onboarding@resend.dev>"
 
     html_body = f"""
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:40px 20px;">
