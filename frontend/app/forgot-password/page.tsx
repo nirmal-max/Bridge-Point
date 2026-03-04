@@ -4,9 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Use the same API base URL logic as api.ts
+const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
+const API_URL = isProduction
+  ? "/backend"
+  : (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000");
 
 type Step = "email" | "otp" | "reset" | "done";
+
+// Safe JSON parse — handles empty responses
+async function safeJson(res: Response): Promise<Record<string, unknown>> {
+  const text = await res.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text || res.statusText };
+  }
+}
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -30,9 +45,9 @@ export default function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Request failed");
-      setMessage(data.message);
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.detail as string) || "Request failed");
+      setMessage((data.message as string) || "Check your email for the reset code.");
       setStep("otp");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to send OTP");
@@ -51,9 +66,9 @@ export default function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, otp }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Verification failed");
-      setResetToken(data.reset_token);
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.detail as string) || "Verification failed");
+      setResetToken(data.reset_token as string);
       setMessage("");
       setStep("reset");
     } catch (err: unknown) {
@@ -83,8 +98,8 @@ export default function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reset_token: resetToken, new_password: newPassword }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Reset failed");
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.detail as string) || "Reset failed");
       setStep("done");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Password reset failed");
