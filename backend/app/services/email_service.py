@@ -19,12 +19,12 @@ _logger = logging.getLogger(__name__)
 RESEND_API_URL = "https://api.resend.com/emails"
 
 
-def send_otp_email(to_email: str, otp: str) -> bool:
-    """Send a 6-digit OTP via Resend HTTP API. Returns True on success."""
+def send_otp_email(to_email: str, otp: str) -> tuple[bool, str]:
+    """Send a 6-digit OTP via Resend HTTP API. Returns (success, error_or_id)."""
 
     if not RESEND_API_KEY:
         _logger.warning("[EMAIL] RESEND_API_KEY not set. OTP for %s: %s", to_email, otp)
-        return False
+        return False, "RESEND_API_KEY not configured"
 
     # Resend free tier: MUST use onboarding@resend.dev as sender
     # To use your own domain, verify it at https://resend.com/domains
@@ -64,11 +64,11 @@ def send_otp_email(to_email: str, otp: str) -> bool:
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = json.loads(resp.read().decode())
             _logger.info("[EMAIL] ✅ OTP sent to %s — Resend ID: %s", to_email, result.get("id"))
-            return True
+            return True, f"Sent OK, ID: {result.get('id')}"
     except urllib.error.HTTPError as e:
         body = e.read().decode() if e.fp else str(e)
         _logger.error("[EMAIL] ❌ Resend API error %d for %s: %s", e.code, to_email, body)
-        return False
+        return False, f"Resend API {e.code}: {body}"
     except Exception as e:
         _logger.error("[EMAIL] ❌ Failed for %s: %s", to_email, str(e))
-        return False
+        return False, f"{type(e).__name__}: {str(e)}"

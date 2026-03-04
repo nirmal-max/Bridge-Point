@@ -73,7 +73,7 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
     # Send OTP via email
     from app.services.email_service import send_otp_email
-    sent = send_otp_email(body.email, otp)
+    sent, email_detail = send_otp_email(body.email, otp)
     if not sent:
         import logging
         logging.getLogger(__name__).warning(f"[DEV FALLBACK] OTP for {body.email}: {otp}")
@@ -82,6 +82,7 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
         "message": "If this email is registered, you will receive a reset code.",
         "_debug_user_found": True,
         "_debug_email_sent": sent,
+        "_debug_email_detail": email_detail,
     }
 
 
