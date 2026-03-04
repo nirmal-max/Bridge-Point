@@ -171,31 +171,41 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
 
 @router.get("/test-smtp")
 def test_smtp():
-    """
-    Temporary diagnostic endpoint to test SMTP connection.
-    Returns the exact error if email sending fails.
-    """
+    """Temporary diagnostic endpoint."""
+    import os
     import smtplib
     import ssl
     from app.config import SMTP_EMAIL, SMTP_PASSWORD
 
-    if not SMTP_EMAIL or not SMTP_PASSWORD:
-        return {
-            "status": "error",
-            "error": "SMTP_EMAIL or SMTP_PASSWORD not configured",
-            "smtp_email": SMTP_EMAIL or "(empty)",
-            "smtp_password_length": len(SMTP_PASSWORD) if SMTP_PASSWORD else 0,
-        }
+    # Scan ALL env vars for anything SMTP-related
+    smtp_vars = {k: v[:4] + "..." for k, v in os.environ.items() if "smtp" in k.lower() or "mail" in k.lower() or "email" in k.lower()}
 
-    password = SMTP_PASSWORD.replace(" ", "")
-    results = {"smtp_email": SMTP_EMAIL, "password_length": len(password)}
+    # Also try reading directly from os.environ
+    direct_email = os.environ.get("SMTP_EMAIL", "(not found)")
+    direct_password_len = len(os.environ.get("SMTP_PASSWORD", ""))
+
+    results = {
+        "config_smtp_email": SMTP_EMAIL or "(empty)",
+        "config_smtp_password_len": len(SMTP_PASSWORD) if SMTP_PASSWORD else 0,
+        "direct_env_email": direct_email[:10] + "..." if len(direct_email) > 10 else direct_email,
+        "direct_env_password_len": direct_password_len,
+        "all_smtp_env_vars": smtp_vars,
+    }
+
+    if not SMTP_EMAIL and not os.environ.get("SMTP_EMAIL"):
+        results["status"] = "error"
+        results["fix"] = "SMTP_EMAIL env var not found. Delete and re-add on Railway."
+        return results
+
+    email = SMTP_EMAIL or os.environ.get("SMTP_EMAIL", "")
+    password = (SMTP_PASSWORD or os.environ.get("SMTP_PASSWORD", "")).replace(" ", "")
 
     # Test SSL 465
     try:
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=15) as s:
-            s.login(SMTP_EMAIL, password)
-        results["ssl_465"] = "✅ Connected and authenticated"
+            s.login(email, password)
+        results["ssl_465"] = "✅ OK"
     except Exception as e:
         results["ssl_465"] = f"❌ {type(e).__name__}: {str(e)}"
 
@@ -203,8 +213,8 @@ def test_smtp():
     try:
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as s:
             s.starttls(context=ssl.create_default_context())
-            s.login(SMTP_EMAIL, password)
-        results["tls_587"] = "✅ Connected and authenticated"
+            s.login(email, password)
+        results["tls_587"] = "✅ OK"
     except Exception as e:
         results["tls_587"] = f"❌ {type(e).__name__}: {str(e)}"
 
