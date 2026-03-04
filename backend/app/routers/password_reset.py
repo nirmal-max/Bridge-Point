@@ -165,3 +165,47 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Password reset successfully. You can now log in with your new password."}
+
+
+# ─── DIAGNOSTIC: Test SMTP (remove after debugging) ───
+
+@router.get("/test-smtp")
+def test_smtp():
+    """
+    Temporary diagnostic endpoint to test SMTP connection.
+    Returns the exact error if email sending fails.
+    """
+    import smtplib
+    import ssl
+    from app.config import SMTP_EMAIL, SMTP_PASSWORD
+
+    if not SMTP_EMAIL or not SMTP_PASSWORD:
+        return {
+            "status": "error",
+            "error": "SMTP_EMAIL or SMTP_PASSWORD not configured",
+            "smtp_email": SMTP_EMAIL or "(empty)",
+            "smtp_password_length": len(SMTP_PASSWORD) if SMTP_PASSWORD else 0,
+        }
+
+    password = SMTP_PASSWORD.replace(" ", "")
+    results = {"smtp_email": SMTP_EMAIL, "password_length": len(password)}
+
+    # Test SSL 465
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=15) as s:
+            s.login(SMTP_EMAIL, password)
+        results["ssl_465"] = "✅ Connected and authenticated"
+    except Exception as e:
+        results["ssl_465"] = f"❌ {type(e).__name__}: {str(e)}"
+
+    # Test TLS 587
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as s:
+            s.starttls(context=ssl.create_default_context())
+            s.login(SMTP_EMAIL, password)
+        results["tls_587"] = "✅ Connected and authenticated"
+    except Exception as e:
+        results["tls_587"] = f"❌ {type(e).__name__}: {str(e)}"
+
+    return results
