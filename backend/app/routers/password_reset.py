@@ -43,13 +43,15 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     """
     Send a password reset OTP.
     Always returns 200 to prevent account enumeration.
-    In production, integrate with email/SMS provider here.
     """
     user = db.query(User).filter(User.email == body.email).first()
 
     if not user:
-        # Don't reveal whether email exists
-        return {"message": "If this email is registered, you will receive a reset code."}
+        # TEMP DEBUG — remove after testing
+        return {
+            "message": "If this email is registered, you will receive a reset code.",
+            "_debug_user_found": False,
+        }
 
     # Generate 6-digit OTP
     otp = str(random.randint(100000, 999999))
@@ -76,7 +78,11 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
         import logging
         logging.getLogger(__name__).warning(f"[DEV FALLBACK] OTP for {body.email}: {otp}")
 
-    return {"message": "If this email is registered, you will receive a reset code."}
+    return {
+        "message": "If this email is registered, you will receive a reset code.",
+        "_debug_user_found": True,
+        "_debug_email_sent": sent,
+    }
 
 
 # ─── 2. Verify OTP ────────────────────────────────────
