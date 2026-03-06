@@ -37,7 +37,11 @@ from app.models.password_reset import PasswordReset
 from app.routers import auth, jobs, applications, reviews, favorites, payments, websocket, calls, messages, private_requests, password_reset
 
 # ─── Create tables ──────────────────────────────────────
-Base.metadata.create_all(bind=engine)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as _db_err:
+    _logger.error(f"⚠️  Could not connect to database at startup: {_db_err}")
+    _logger.error("Tables will be created on first successful connection.")
 
 # ─── Application ────────────────────────────────────────
 app = FastAPI(
