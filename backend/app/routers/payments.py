@@ -138,7 +138,7 @@ class MarkPaymentSentBody(BaseModel):
 @router.post("/{job_id}/mark-sent")
 async def mark_payment_sent(
     job_id: int,
-    body: MarkPaymentSentBody = MarkPaymentSentBody(),
+    body: MarkPaymentSentBody,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_employer),
 ):
