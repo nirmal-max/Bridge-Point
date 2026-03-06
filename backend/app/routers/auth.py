@@ -12,6 +12,7 @@ from app.utils.deps import get_current_user
 from app.models.user import User, UserRole, LaborCategory
 from app.schemas.user import UserRegister, UserLogin, TokenResponse, UserResponse
 from app.utils.security import hash_password, verify_password, create_access_token
+from app.config import ADMIN_EMAILS
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -37,13 +38,14 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
     # Unified user mode: all users get both roles
     roles = [UserRole.EMPLOYER.value, UserRole.LABOR.value]
 
-    # Create user
+    # Create user (auto-admin if email is in ADMIN_EMAILS)
     user = User(
         email=payload.email,
         phone=payload.phone,
         password_hash=hash_password(payload.password),
         full_name=payload.full_name,
         roles=json.dumps(roles),
+        is_admin=payload.email.lower().strip() in ADMIN_EMAILS,
         labor_category=LaborCategory(payload.labor_category) if payload.labor_category else None,
         skills=json.dumps(payload.skills) if payload.skills else None,
         city=payload.city,
@@ -75,6 +77,13 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+
+    # Sync admin flag on login (survives DB resets)
+    should_be_admin = user.email.lower().strip() in ADMIN_EMAILS
+    if should_be_admin and not user.is_admin:
+        user.is_admin = True
+        db.commit()
+        db.refresh(user)
 
     roles = json.loads(user.roles)
     token = create_access_token(data={"sub": str(user.id), "roles": roles})

@@ -87,3 +87,7 @@ if _turn_url and _turn_user and _turn_cred:
 # ─── Platform Payment (UPI Custody) ───────────────────
 PLATFORM_UPI_ID: str = os.getenv("PLATFORM_UPI_ID", "nirmal.2007000-2@okhdfcbank")
 PLATFORM_UPI_NAME: str = os.getenv("PLATFORM_UPI_NAME", "Nirmal")
+
+# ─── Admin Emails (auto-granted admin on register) ────
+_admin_env = os.getenv("ADMIN_EMAILS", "bridgepoint.team@gmail.com")
+ADMIN_EMAILS: set[str] = {e.strip().lower() for e in _admin_env.split(",") if e.strip()}
