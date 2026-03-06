@@ -15,6 +15,7 @@ interface PendingJob {
   platform_commission: number;
   worker_payout: number;
   payment_method: string | null;
+  upi_reference?: string | null;
   payment_sent_at: string | null;
   created_at: string | null;
 }
@@ -173,12 +174,16 @@ export default function AdminPage() {
                     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
                       job.status === "verification_pending"
                         ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                        : "bg-green-50 text-green-700 border-green-200"
+                        : job.status === "verified"
+                        ? "bg-green-50 text-green-700 border-green-200"
+                        : "bg-blue-50 text-blue-700 border-blue-200"
                     }`}
                   >
                     {job.status === "verification_pending"
                       ? "Awaiting Verification"
-                      : "Ready for Payout"}
+                      : job.status === "verified"
+                      ? "Verified — Ready for Payout"
+                      : "Payout Released"}
                   </span>
                 </div>
 
@@ -222,6 +227,16 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
+
+                {/* UTR Display */}
+                {job.upi_reference && (
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 mb-4 text-sm">
+                    <span className="text-[var(--color-bp-gray-500)]">UTR: </span>
+                    <span className="font-mono font-semibold text-blue-800 tracking-wider">
+                      {job.upi_reference}
+                    </span>
+                  </div>
+                )}
 
                 {job.status === "verification_pending" && (
                   <button

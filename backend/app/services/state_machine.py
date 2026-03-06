@@ -15,7 +15,7 @@ from enum import Enum
 
 
 class JobStatus(str, Enum):
-    """Immutable 9-stage lifecycle. DO NOT ADD or REMOVE states."""
+    """Immutable 10-stage lifecycle. DO NOT ADD or REMOVE states."""
     POSTED = "posted"
     LABOUR_ALLOTTED = "labour_allotted"
     WORK_STARTED = "work_started"
@@ -24,6 +24,7 @@ class JobStatus(str, Enum):
     # ─── Platform Custody Payment States ─────────────────
     PAYMENT_IN_PROCESS = "payment_in_process"
     VERIFICATION_PENDING = "verification_pending"
+    VERIFIED = "verified"
     PAYOUT_RELEASED = "payout_released"
     PAYMENT_COMPLETED = "payment_completed"
 
@@ -36,7 +37,8 @@ ALLOWED_TRANSITIONS: dict[JobStatus, list[JobStatus]] = {
     JobStatus.WORK_IN_PROGRESS:      [JobStatus.WORK_COMPLETED],
     JobStatus.WORK_COMPLETED:        [JobStatus.PAYMENT_IN_PROCESS],
     JobStatus.PAYMENT_IN_PROCESS:    [JobStatus.VERIFICATION_PENDING],
-    JobStatus.VERIFICATION_PENDING:  [JobStatus.PAYOUT_RELEASED],
+    JobStatus.VERIFICATION_PENDING:  [JobStatus.VERIFIED],
+    JobStatus.VERIFIED:              [JobStatus.PAYOUT_RELEASED],
     JobStatus.PAYOUT_RELEASED:       [JobStatus.PAYMENT_COMPLETED],
     JobStatus.PAYMENT_COMPLETED:     [],  # Terminal state
 }
@@ -48,9 +50,10 @@ STATUS_PROGRESS: dict[JobStatus, int] = {
     JobStatus.LABOUR_ALLOTTED: 15,
     JobStatus.WORK_STARTED: 30,
     JobStatus.WORK_IN_PROGRESS: 55,
-    JobStatus.WORK_COMPLETED: 75,
-    JobStatus.PAYMENT_IN_PROCESS: 82,
-    JobStatus.VERIFICATION_PENDING: 90,
+    JobStatus.WORK_COMPLETED: 70,
+    JobStatus.PAYMENT_IN_PROCESS: 78,
+    JobStatus.VERIFICATION_PENDING: 85,
+    JobStatus.VERIFIED: 90,
     JobStatus.PAYOUT_RELEASED: 95,
     JobStatus.PAYMENT_COMPLETED: 100,
 }
@@ -66,6 +69,7 @@ ACTIVE_WORK_STATUSES = {
     JobStatus.WORK_COMPLETED,
     JobStatus.PAYMENT_IN_PROCESS,
     JobStatus.VERIFICATION_PENDING,
+    JobStatus.VERIFIED,
 }
 HISTORY_STATUSES = {JobStatus.PAYOUT_RELEASED, JobStatus.PAYMENT_COMPLETED}
 
@@ -92,6 +96,7 @@ def get_status_display(status: JobStatus) -> str:
         JobStatus.WORK_COMPLETED: "Work Completed",
         JobStatus.PAYMENT_IN_PROCESS: "Payment in Process",
         JobStatus.VERIFICATION_PENDING: "Verification Pending",
+        JobStatus.VERIFIED: "Payment Verified",
         JobStatus.PAYOUT_RELEASED: "Payout Released",
         JobStatus.PAYMENT_COMPLETED: "Payment Completed",
     }

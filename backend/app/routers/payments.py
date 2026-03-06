@@ -133,7 +133,7 @@ def initiate_payment(
 # ─── 2. Employer: Mark Payment Sent ─────────────────────
 
 class MarkPaymentSentBody(BaseModel):
-    upi_reference: str | None = None  # UPI Transaction Reference (UTI)
+    upi_reference: str  # UPI Transaction Reference (UTR) — REQUIRED
 
 @router.post("/{job_id}/mark-sent")
 async def mark_payment_sent(
@@ -157,6 +157,24 @@ async def mark_payment_sent(
             detail=f"Job must be in 'payment_in_process' status. Current: {job.status}",
         )
 
+    # Validate UTR: must be non-empty, numeric, 12+ chars
+    utr = body.upi_reference.strip()
+    if not utr:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="UPI Transaction Reference (UTR) is required.",
+        )
+    if not utr.replace(" ", "").isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="UTR must contain only digits.",
+        )
+    if len(utr.replace(" ", "")) < 12:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="UTR must be at least 12 digits.",
+        )
+
     now = datetime.now(timezone.utc)
 
     transition = StatusTransition(
@@ -172,11 +190,10 @@ async def mark_payment_sent(
     job.payment_sent_at = now
     job.updated_at = now
 
-    # Store UTI reference in commission ledger if provided
-    if body.upi_reference:
-        ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
-        if ledger:
-            ledger.upi_reference = body.upi_reference.strip()
+    # Store UTR reference in commission ledger
+    ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
+    if ledger:
+        ledger.upi_reference = utr
 
     db.commit()
 
@@ -222,6 +239,71 @@ async def verify_payment(
     transition = StatusTransition(
         job_id=job.id,
         from_status=JobStatus.VERIFICATION_PENDING.value,
+        to_status=JobStatus.VERIFIED.value,
+        changed_by_user_id=current_user.id,
+    )
+    db.add(transition)
+
+    job.status = JobStatus.VERIFIED.value
+    job.payment_status = "verified"
+    job.updated_at = now
+
+    # Update ledger
+    ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
+    if ledger:
+        ledger.payment_status = "verified"
+
+    db.commit()
+
+    # Notify employer
+    await manager.send_to_user(job.employer_id, {
+        "type": "payment:verified",
+        "job_id": job.id,
+        "message": f"Payment for \"{job.title}\" has been verified.",
+    })
+    # Notify worker
+    if job.allotted_labor_id:
+        await manager.send_to_user(job.allotted_labor_id, {
+            "type": "payment:verified",
+            "job_id": job.id,
+            "message": f"Payment for \"{job.title}\" has been verified by admin.",
+        })
+
+    return {
+        "message": "Payment verified. Ready for payout release.",
+        "status": job.status,
+        "worker_payout": job.worker_payout_paise / 100,
+        "platform_commission": job.platform_commission_paise / 100,
+    }
+
+
+# ─── 4. Admin: Mark Job as Fully Completed ──────────────
+
+@router.post("/{job_id}/release-payout")
+async def release_payout(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """
+    Admin releases payout to worker.
+    Transitions: verified → payout_released.
+    """
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status != JobStatus.VERIFIED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Job must be in 'verified' status. Current: {job.status}",
+        )
+
+    now = datetime.now(timezone.utc)
+
+    transition = StatusTransition(
+        job_id=job.id,
+        from_status=JobStatus.VERIFIED.value,
         to_status=JobStatus.PAYOUT_RELEASED.value,
         changed_by_user_id=current_user.id,
     )
@@ -239,13 +321,12 @@ async def verify_payment(
 
     db.commit()
 
-    # Notify employer
+    # Notify both parties
     await manager.send_to_user(job.employer_id, {
-        "type": "payment:verified",
+        "type": "payment:payout_released",
         "job_id": job.id,
-        "message": f"Payment for \"{job.title}\" has been verified. Payout released to worker.",
+        "message": f"Payout of ₹{job.worker_payout_paise / 100:.2f} released for \"{job.title}\".",
     })
-    # Notify worker
     if job.allotted_labor_id:
         await manager.send_to_user(job.allotted_labor_id, {
             "type": "payment:payout",
@@ -255,71 +336,7 @@ async def verify_payment(
         })
 
     return {
-        "message": "Payment verified and payout released to worker.",
-        "status": job.status,
-        "worker_payout": job.worker_payout_paise / 100,
-        "platform_commission": job.platform_commission_paise / 100,
-    }
-
-
-# ─── 4. Admin: Mark Job as Fully Completed ──────────────
-
-@router.post("/{job_id}/release-payout")
-async def release_payout(
-    job_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
-):
-    """
-    Admin marks job as fully completed.
-    Transitions: payout_released → payment_completed.
-    """
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    if job.status != JobStatus.PAYOUT_RELEASED.value:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Job must be in 'payout_released' status. Current: {job.status}",
-        )
-
-    now = datetime.now(timezone.utc)
-
-    transition = StatusTransition(
-        job_id=job.id,
-        from_status=JobStatus.PAYOUT_RELEASED.value,
-        to_status=JobStatus.PAYMENT_COMPLETED.value,
-        changed_by_user_id=current_user.id,
-    )
-    db.add(transition)
-
-    job.status = JobStatus.PAYMENT_COMPLETED.value
-    job.payment_status = "completed"
-    job.updated_at = now
-
-    # Update ledger
-    ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
-    if ledger:
-        ledger.payment_status = "completed"
-
-    db.commit()
-
-    # Notify both parties
-    await manager.send_to_user(job.employer_id, {
-        "type": "payment:completed",
-        "job_id": job.id,
-        "message": f"Job \"{job.title}\" is now fully completed.",
-    })
-    if job.allotted_labor_id:
-        await manager.send_to_user(job.allotted_labor_id, {
-            "type": "payment:completed",
-            "job_id": job.id,
-            "message": f"Job \"{job.title}\" is now fully completed. Thank you!",
-        })
-
-    return {
-        "message": "Payout released. Job payment completed.",
+        "message": "Payout released to worker.",
         "status": job.status,
         "worker_payout": job.worker_payout_paise / 100,
         "platform_commission": job.platform_commission_paise / 100,
@@ -337,6 +354,7 @@ def get_pending_payments(
     """Admin: list all jobs awaiting verification or payout."""
     pending_statuses = [
         JobStatus.VERIFICATION_PENDING.value,
+        JobStatus.VERIFIED.value,
         JobStatus.PAYOUT_RELEASED.value,
     ]
     jobs = (
@@ -350,6 +368,8 @@ def get_pending_payments(
     for job in jobs:
         employer = job.employer
         labor = job.allotted_labor
+        # Get UTR from commission ledger
+        ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
         result.append({
             "id": job.id,
             "title": job.title,
@@ -360,6 +380,7 @@ def get_pending_payments(
             "platform_commission": job.platform_commission_paise / 100,
             "worker_payout": job.worker_payout_paise / 100,
             "payment_method": job.payment_method,
+            "upi_reference": ledger.upi_reference if ledger else None,
             "payment_sent_at": job.payment_sent_at.isoformat() if job.payment_sent_at else None,
             "created_at": job.created_at.isoformat() if job.created_at else None,
         })

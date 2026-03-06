@@ -118,7 +118,7 @@ export default function JobDetailPage() {
   const handleMarkSent = async () => {
     setActionLoading(true);
     try {
-      await api.markPaymentSent(jobId, upiRef || undefined);
+      await api.markPaymentSent(jobId, upiRef);
       const j = await api.getJob(jobId);
       setJob(j);
       setToast("Payment marked as sent. Awaiting verification.");
@@ -481,50 +481,54 @@ export default function JobDetailPage() {
           {isOwner && job.status === "payment_in_process" && (
             <div className="card !p-6 text-center">
               <h3 className="text-lg font-semibold text-[var(--color-bp-black)] mb-4">
-                Pay to BridgePoint
+                Pay to Platform
               </h3>
 
-              {/* UPI QR Code */}
+              {/* Platform QR Code */}
               <div className="bg-white border-2 border-dashed border-[var(--color-bp-gray-300)] rounded-2xl p-6 mb-4 inline-block mx-auto">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                    `upi://pay?pa=bridgepoint@upi&pn=BridgePoint+Platform&am=${job.budget.toFixed(2)}&cu=INR&tn=Job-${job.id}`
-                  )}`}
+                  src="/platform-qr.png"
                   alt="Platform UPI QR"
                   className="w-48 h-48 mx-auto"
                 />
               </div>
 
               <div className="text-sm text-[var(--color-bp-gray-600)] mb-1">
-                UPI ID: <strong className="text-[var(--color-bp-black)]">bridgepoint@upi</strong>
+                UPI ID: <strong className="text-[var(--color-bp-black)]">nirmal.2007000-2@okhdfcbank</strong>
               </div>
               <div className="text-2xl font-bold text-[var(--color-bp-black)] mb-1">
                 ₹{job.budget.toFixed(2)}
               </div>
               <div className="text-xs text-[var(--color-bp-gray-500)] mb-4">
-                Platform Commission: ₹{job.platform_commission.toFixed(2)} · Worker Payout: ₹{job.worker_payout.toFixed(2)}
+                Platform Commission (3%): ₹{job.platform_commission.toFixed(2)} · Worker Payout: ₹{job.worker_payout.toFixed(2)}
               </div>
 
-              {/* UTI Reference Input */}
+              {/* UTR Reference Input */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-[var(--color-bp-gray-700)] mb-1.5 text-left">
-                  UPI Transaction Reference (UTI)
+                  UPI Transaction Reference (UTR) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="Enter 12-digit UPI reference number"
+                  placeholder="Enter 12-digit UTR number"
                   value={upiRef}
-                  onChange={(e) => setUpiRef(e.target.value)}
+                  onChange={(e) => setUpiRef(e.target.value.replace(/[^0-9]/g, ''))}
+                  maxLength={22}
                 />
+                {upiRef.length > 0 && upiRef.length < 12 && (
+                  <p className="text-xs text-red-500 mt-1 text-left">
+                    UTR must be at least 12 digits.
+                  </p>
+                )}
                 <p className="text-xs text-[var(--color-bp-gray-500)] mt-1 text-left">
-                  You can find this in your UPI app under transaction details.
+                  Find this in your UPI app → Transaction History → Transaction Details.
                 </p>
               </div>
 
               <button
                 onClick={handleMarkSent}
-                disabled={actionLoading}
+                disabled={actionLoading || upiRef.length < 12}
                 className="btn-primary w-full !py-4"
               >
                 {actionLoading ? "Marking..." : "✓ I Have Sent the Payment"}

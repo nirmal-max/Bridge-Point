@@ -85,5 +85,5 @@ if _turn_url and _turn_user and _turn_cred:
     })
 
 # ─── Platform Payment (UPI Custody) ───────────────────
-PLATFORM_UPI_ID: str = os.getenv("PLATFORM_UPI_ID", "bridgepoint@upi")
-PLATFORM_UPI_NAME: str = os.getenv("PLATFORM_UPI_NAME", "BridgePoint Platform")
+PLATFORM_UPI_ID: str = os.getenv("PLATFORM_UPI_ID", "nirmal.2007000-2@okhdfcbank")
+PLATFORM_UPI_NAME: str = os.getenv("PLATFORM_UPI_NAME", "Nirmal")
