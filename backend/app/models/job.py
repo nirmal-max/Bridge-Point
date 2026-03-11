@@ -97,7 +97,8 @@ class Job(Base):
     accepted_at = Column(DateTime, nullable=True)
 
     # ─── Payment ─────────────────────────────────────────
-    payment_method = Column(String(20), nullable=True)  # "upi" or "cash"
+    payment_method = Column(String(20), nullable=True)  # "upi", "cash", or "cashfree"
+    cashfree_order_id = Column(String(100), nullable=True, index=True)  # Cashfree order linkage
 
     # ─── Timestamps ──────────────────────────────────────
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -114,6 +115,7 @@ class Job(Base):
     status_transitions = relationship("StatusTransition", back_populates="job", order_by="StatusTransition.created_at")
     reviews = relationship("Review", back_populates="job")
     commission_ledger = relationship("CommissionLedger", back_populates="job", uselist=False)
+    payment = relationship("Payment", back_populates="job", uselist=False)
 
     # ─── Composite Indexes ───────────────────────────────
     __table_args__ = (

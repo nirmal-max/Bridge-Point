@@ -144,10 +144,10 @@ function UnifiedDashboard() {
     WORK_DESCRIPTIONS.find((w) => w.value === val)?.label || val;
 
   const activeJobs = jobs.filter(
-    (j) => !["payout_released", "payment_completed"].includes(j.status)
+    (j) => !["payout_transferred", "payment_completed"].includes(j.status)
   );
   const completedJobs = jobs.filter((j) =>
-    ["payout_released", "payment_completed"].includes(j.status)
+    ["payout_transferred", "payment_completed"].includes(j.status)
   );
 
   const handleRemoveFavorite = async (favId: number) => {

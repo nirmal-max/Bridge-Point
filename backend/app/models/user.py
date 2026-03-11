@@ -41,6 +41,11 @@ class User(Base):
     city = Column(String(100), default="Chennai")
     bio = Column(Text, nullable=True)
 
+    # ─── Cashfree Payouts (worker bank/UPI details) ─────
+    bank_account_number = Column(String(20), nullable=True)
+    bank_ifsc = Column(String(11), nullable=True)
+    payout_upi_id = Column(String(50), nullable=True)
+
     # ─── Verification ────────────────────────────────────
     phone_verified = Column(Boolean, default=False)
     email_verified = Column(Boolean, default=False)

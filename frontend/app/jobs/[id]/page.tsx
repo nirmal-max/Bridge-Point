@@ -13,6 +13,13 @@ import {
 import CallButton from "@/components/CallButton";
 import ProgressBar from "@/components/ProgressBar";
 import ChatPanel from "@/components/ChatPanel";
+import Script from "next/script";
+
+declare global {
+  interface Window {
+    Cashfree: any;
+  }
+}
 
 // Who can trigger each work stage transition
 const NEXT_STATUS: Record<string, { target: string; allowedRole: "labor" | "employer" | "both" }> = {
@@ -21,7 +28,7 @@ const NEXT_STATUS: Record<string, { target: string; allowedRole: "labor" | "empl
   work_in_progress: { target: "work_completed", allowedRole: "employer" },
 };
 
-// Statuses during which calling is allowed between employer and assigned labor
+// Statuses during which calling is allowed
 const CALL_ENABLED_STATUSES = ["labour_allotted", "work_started", "work_in_progress"];
 
 export default function JobDetailPage() {
@@ -33,8 +40,8 @@ export default function JobDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"upi" | "cash">("upi");
-  const [upiRef, setUpiRef] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cashfree" | "upi" | "cash">("cashfree");
+  const [cashfreeLoaded, setCashfreeLoaded] = useState(false);
 
   const jobId = Number(id);
 
@@ -103,55 +110,83 @@ export default function JobDetailPage() {
 
   const handlePayment = async () => {
     setActionLoading(true);
+    setError("");
     try {
-      await api.initiatePayment(jobId, paymentMethod);
-      const j = await api.getJob(jobId);
-      setJob(j);
-      setToast("Payment initiated! Scan the QR code to pay.");
+      // Step 1: Create Cashfree order on backend
+      const orderData = await api.createPaymentOrder(jobId);
+
+      // Step 2: Initialize Cashfree Checkout
+      if (!window.Cashfree) {
+        setError("Cashfree SDK not loaded. Please refresh and try again.");
+        setActionLoading(false);
+        return;
+      }
+
+      const cashfree = window.Cashfree({
+        mode: orderData.environment === "production" ? "production" : "sandbox",
+      });
+
+      const checkoutOptions = {
+        paymentSessionId: orderData.payment_session_id,
+        redirectTarget: "_modal",
+      };
+
+      // Step 3: Open Cashfree Checkout
+      cashfree.checkout(checkoutOptions).then(async (result: any) => {
+        if (result.error) {
+          setError(result.error.message || "Payment failed");
+          setActionLoading(false);
+          return;
+        }
+        if (result.redirect) {
+          // Payment is being processed
+          return;
+        }
+        if (result.paymentDetails) {
+          // Step 4: Verify payment on backend
+          try {
+            await api.verifyPayment({
+              job_id: jobId,
+              cashfree_order_id: orderData.order_id,
+            });
+            const j = await api.getJob(jobId);
+            setJob(j);
+            setToast("Payment successful! Verified securely.");
+          } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Payment verification failed");
+          }
+          setActionLoading(false);
+        }
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Payment initiation failed");
+      setActionLoading(false);
+    }
+  };
+
+  const handleAdminTransfer = async () => {
+    setActionLoading(true);
+    try {
+      await api.adminInitiateTransfer(jobId);
+      const j = await api.getJob(jobId);
+      setJob(j);
+      setToast("Payout transfer initiated!");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Transfer failed");
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleMarkSent = async () => {
+  const handleAdminComplete = async () => {
     setActionLoading(true);
     try {
-      await api.markPaymentSent(jobId, upiRef);
+      await api.adminMarkCompleted(jobId);
       const j = await api.getJob(jobId);
       setJob(j);
-      setToast("Payment marked as sent. Awaiting verification.");
+      setToast("Job marked as completed!");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to mark payment sent");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleAdminVerify = async () => {
-    setActionLoading(true);
-    try {
-      await api.adminVerifyPayment(jobId);
-      const j = await api.getJob(jobId);
-      setJob(j);
-      setToast("Payment verified!");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Verification failed");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleAdminRelease = async () => {
-    setActionLoading(true);
-    try {
-      await api.adminReleasePayout(jobId);
-      const j = await api.getJob(jobId);
-      setJob(j);
-      setToast("Payout released! Job complete.");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Payout release failed");
+      setError(err instanceof Error ? err.message : "Failed to complete job");
     } finally {
       setActionLoading(false);
     }
@@ -208,6 +243,13 @@ export default function JobDetailPage() {
   const canCall = CALL_ENABLED_STATUSES.includes(job.status);
 
   return (
+    <>
+      {/* Cashfree Checkout Script */}
+      <Script
+        src="https://sdk.cashfree.com/js/v3/cashfree.js"
+        onLoad={() => setCashfreeLoaded(true)}
+      />
+
     <div className="pt-14 min-h-screen bg-[var(--color-bp-gray-100)]">
       <div className="max-w-3xl mx-auto px-6 py-12">
         {/* Toast */}
@@ -358,16 +400,20 @@ export default function JobDetailPage() {
           {(isOwner || user?.is_admin) && (
             <div className="text-sm space-y-1.5 text-[var(--color-bp-gray-500)]">
               <div className="flex justify-between">
-                <span>Platform Commission (3%)</span>
-                <span>₹{job.platform_commission.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Worker Payout (97%)</span>
-                <span>₹{job.worker_payout.toFixed(2)}</span>
+                <span>Employer Commission (4%)</span>
+                <span>+₹{job.employer_commission.toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-semibold text-[var(--color-bp-black)] pt-1 border-t border-[var(--color-bp-gray-200)]">
                 <span>You Pay</span>
-                <span>₹{job.budget.toFixed(2)}</span>
+                <span>₹{job.employer_total.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs mt-1">
+                <span>Worker Payout</span>
+                <span>₹{job.worker_payout.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span>Platform Fee (4% + 4%)</span>
+                <span>₹{job.platform_commission.toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -375,8 +421,8 @@ export default function JobDetailPage() {
           {isAllottedLabor && !user?.is_admin && (
             <div className="text-sm space-y-1.5 text-[var(--color-bp-gray-500)]">
               <div className="flex justify-between">
-                <span>Platform Fee (3%)</span>
-                <span>-₹{job.platform_commission.toFixed(2)}</span>
+                <span>Platform Fee (4%)</span>
+                <span>-₹{job.labor_commission.toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-semibold text-[var(--color-bp-black)]">
                 <span>You Receive</span>
@@ -433,126 +479,86 @@ export default function JobDetailPage() {
           )}
 
           {/* ═══════════════════════════════════════════════════════ */}
-          {/* PLATFORM CUSTODY PAYMENT FLOW                          */}
+          {/* RAZORPAY PAYMENT FLOW                                    */}
           {/* ═══════════════════════════════════════════════════════ */}
 
-          {/* Step 1: Employer initiates payment — show method selector */}
+          {/* Step 1: Employer pays via Cashfree Checkout */}
           {isOwner && job.status === "work_completed" && (
             <div className="card !p-6">
               <h3 className="text-lg font-semibold text-[var(--color-bp-black)] mb-3">
-                Initiate Payment
+                Pay Securely
               </h3>
               <p className="text-sm text-[var(--color-bp-gray-500)] mb-4">
-                Pay to the BridgePoint platform. We will release 97% to the worker after verification.
+                Pay via Cashfree. Platform fee: 4%. Worker receives ₹{job.worker_payout.toFixed(2)}.
               </p>
-              <div className="flex gap-3 mb-4">
-                <button
-                  onClick={() => setPaymentMethod("upi")}
-                  className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-all ${
-                    paymentMethod === "upi"
-                      ? "bg-[var(--color-bp-blue)] text-white border-[var(--color-bp-blue)]"
-                      : "bg-white text-[var(--color-bp-gray-700)] border-[var(--color-bp-gray-300)]"
-                  }`}
-                >
-                  UPI
-                </button>
-                <button
-                  onClick={() => setPaymentMethod("cash")}
-                  className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-all ${
-                    paymentMethod === "cash"
-                      ? "bg-[var(--color-bp-blue)] text-white border-[var(--color-bp-blue)]"
-                      : "bg-white text-[var(--color-bp-gray-700)] border-[var(--color-bp-gray-300)]"
-                  }`}
-                >
-                  Cash
-                </button>
+              <div className="bg-[var(--color-bp-gray-100)] rounded-xl p-4 mb-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-bp-gray-500)]">Job Budget</span>
+                  <span className="font-medium">₹{job.budget.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-bp-gray-500)]">Platform Fee (4%)</span>
+                  <span className="font-medium">+₹{job.employer_commission.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-semibold pt-2 border-t border-[var(--color-bp-gray-300)]">
+                  <span>Total Amount</span>
+                  <span>₹{job.employer_total.toFixed(2)}</span>
+                </div>
               </div>
               <button
                 onClick={handlePayment}
-                disabled={actionLoading}
-                className="btn-primary w-full !py-3"
+                disabled={actionLoading || !cashfreeLoaded}
+                className="btn-primary w-full !py-4 text-lg flex items-center justify-center gap-2"
               >
-                {actionLoading ? "Processing..." : `Initiate Payment — ₹${job.budget.toFixed(2)}`}
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: Show Platform UPI QR + "Mark Payment Sent" */}
-          {isOwner && job.status === "payment_in_process" && (
-            <div className="card !p-6 text-center">
-              <h3 className="text-lg font-semibold text-[var(--color-bp-black)] mb-4">
-                Pay to Platform
-              </h3>
-
-              {/* Platform QR Code */}
-              <div className="bg-white border-2 border-dashed border-[var(--color-bp-gray-300)] rounded-2xl p-6 mb-4 inline-block mx-auto">
-                <img
-                  src="/platform-qr.png"
-                  alt="Platform UPI QR"
-                  className="w-48 h-48 mx-auto"
-                />
-              </div>
-
-              <div className="text-sm text-[var(--color-bp-gray-600)] mb-1">
-                UPI ID: <strong className="text-[var(--color-bp-black)]">nirmal.2007000-2@okhdfcbank</strong>
-              </div>
-              <div className="text-2xl font-bold text-[var(--color-bp-black)] mb-1">
-                ₹{job.budget.toFixed(2)}
-              </div>
-              <div className="text-xs text-[var(--color-bp-gray-500)] mb-4">
-                Platform Commission (3%): ₹{job.platform_commission.toFixed(2)} · Worker Payout: ₹{job.worker_payout.toFixed(2)}
-              </div>
-
-              {/* UTR Reference Input */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-[var(--color-bp-gray-700)] mb-1.5 text-left">
-                  UPI Transaction Reference (UTR) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Enter 12-digit UTR number"
-                  value={upiRef}
-                  onChange={(e) => setUpiRef(e.target.value.replace(/[^0-9]/g, ''))}
-                  maxLength={22}
-                />
-                {upiRef.length > 0 && upiRef.length < 12 && (
-                  <p className="text-xs text-red-500 mt-1 text-left">
-                    UTR must be at least 12 digits.
-                  </p>
+                {actionLoading ? (
+                  "Processing..."
+                ) : (
+                  <>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                      <line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                    Pay ₹{job.employer_total.toFixed(2)} Securely
+                  </>
                 )}
-                <p className="text-xs text-[var(--color-bp-gray-500)] mt-1 text-left">
-                  Find this in your UPI app → Transaction History → Transaction Details.
-                </p>
-              </div>
-
-              <button
-                onClick={handleMarkSent}
-                disabled={actionLoading || upiRef.length < 12}
-                className="btn-primary w-full !py-4"
-              >
-                {actionLoading ? "Marking..." : "✓ I Have Sent the Payment"}
               </button>
-            </div>
-          )}
-
-          {/* Step 3: Verification Pending — Employer waiting */}
-          {isOwner && job.status === "verification_pending" && (
-            <div className="card !p-8 text-center bg-yellow-50 border-yellow-100">
-              <div className="text-4xl mb-3">⏳</div>
-              <h3 className="text-lg font-semibold text-yellow-700 mb-1">Payment Sent</h3>
-              <p className="text-sm text-yellow-600">
-                Awaiting platform verification. We will confirm receipt shortly.
-              </p>
-              {job.payment_sent_at && (
-                <p className="text-xs text-yellow-500 mt-2">
-                  Sent: {new Date(job.payment_sent_at).toLocaleString("en-IN")}
+              {!cashfreeLoaded && (
+                <p className="text-xs text-[var(--color-bp-gray-500)] mt-2 text-center">
+                  Loading payment gateway...
                 </p>
               )}
             </div>
           )}
 
-          {/* Verified status — waiting for payout (removed: verified no longer exists) */}
+          {/* Payment Pending — Employer waiting for checkout */}
+          {isOwner && job.status === "payment_pending" && (
+            <div className="card !p-6">
+              <h3 className="text-lg font-semibold text-[var(--color-bp-black)] mb-3">
+                Complete Payment
+              </h3>
+              <p className="text-sm text-[var(--color-bp-gray-500)] mb-4">
+                Your payment order has been created. Click below to complete payment via Cashfree.
+              </p>
+              <button
+                onClick={handlePayment}
+                disabled={actionLoading || !cashfreeLoaded}
+                className="btn-primary w-full !py-4 text-lg"
+              >
+                {actionLoading ? "Processing..." : `Pay ₹${job.employer_total.toFixed(2)} Securely`}
+              </button>
+            </div>
+          )}
+
+          {/* Payment Paid — Employer sees confirmation */}
+          {isOwner && job.status === "payment_paid" && (
+            <div className="card !p-8 text-center bg-indigo-50 border-indigo-100">
+              <div className="text-4xl mb-3">✅</div>
+              <h3 className="text-lg font-semibold text-indigo-700 mb-1">Payment Received!</h3>
+              <p className="text-sm text-indigo-600">
+                ₹{job.employer_total.toFixed(2)} paid successfully. Worker payout of ₹{job.worker_payout.toFixed(2)} will be transferred shortly.
+              </p>
+            </div>
+          )}
 
           {/* Laborer waiting states */}
           {isAllottedLabor && job.status === "work_completed" && (
@@ -565,59 +571,62 @@ export default function JobDetailPage() {
             </div>
           )}
 
-          {isAllottedLabor && ["payment_in_process", "verification_pending"].includes(job.status) && (
+          {isAllottedLabor && ["payment_pending", "payment_paid"].includes(job.status) && (
             <div className="card !p-8 text-center bg-yellow-50 border-yellow-100">
               <div className="text-4xl mb-3">⏳</div>
               <h3 className="text-lg font-semibold text-yellow-700 mb-1">Payment in Progress</h3>
               <p className="text-sm text-yellow-600">
-                Employer has initiated payment. Platform is verifying.
+                {job.status === "payment_paid"
+                  ? "Payment received! Your payout is being processed."
+                  : "Employer is completing payment."}
               </p>
               <p className="text-xs text-yellow-500 mt-2">
-                You will receive ₹{job.worker_payout.toFixed(2)} once verified.
+                You will receive ₹{job.worker_payout.toFixed(2)} once transferred.
               </p>
             </div>
           )}
 
           {/* Payment Completed — Final State */}
-          {(isOwner || isAllottedLabor) && ["payout_released", "payment_completed"].includes(job.status) && (
+          {(isOwner || isAllottedLabor) && ["payout_transferred", "payment_completed"].includes(job.status) && (
             <div className="card !p-8 text-center bg-emerald-50 border-emerald-100">
               <div className="text-4xl mb-3">🎉</div>
               <h3 className="text-lg font-semibold text-emerald-700 mb-1">Payment Completed!</h3>
               <p className="text-sm text-emerald-600">
                 {isAllottedLabor
-                  ? `₹${job.worker_payout.toFixed(2)} has been released to you.`
-                  : "Worker payout has been released. Job complete!"}
+                  ? `₹${job.worker_payout.toFixed(2)} has been transferred to you.`
+                  : "Worker payout has been transferred. Job complete!"}
               </p>
               {job.payout_released_at && (
                 <p className="text-xs text-emerald-500 mt-2">
-                  Released: {new Date(job.payout_released_at).toLocaleString("en-IN")}
+                  Transferred: {new Date(job.payout_released_at).toLocaleString("en-IN")}
                 </p>
               )}
             </div>
           )}
 
           {/* Admin Actions */}
-          {user?.is_admin && job.status === "verification_pending" && (
+          {user?.is_admin && job.status === "payment_paid" && (
             <div className="card !p-6 bg-purple-50 border-purple-100">
               <h3 className="text-lg font-semibold text-purple-800 mb-3">
-                🔐 Admin: Verify & Release Payout
+                🔐 Admin: Initiate Worker Payout
               </h3>
               <div className="text-sm text-purple-600 mb-4 space-y-1">
                 <div>Budget: ₹{job.budget.toFixed(2)}</div>
-                <div>Commission: ₹{job.platform_commission.toFixed(2)}</div>
+                <div>Employer Paid: ₹{job.employer_total.toFixed(2)}</div>
+                <div>Platform Commission: ₹{job.platform_commission.toFixed(2)}</div>
                 <div>Worker Payout: ₹{job.worker_payout.toFixed(2)}</div>
               </div>
               <button
-                onClick={handleAdminVerify}
+                onClick={handleAdminTransfer}
                 disabled={actionLoading}
                 className="btn-primary w-full !py-3 !bg-purple-600"
               >
-                {actionLoading ? "Verifying..." : "Confirm Payment & Release Payout"}
+                {actionLoading ? "Transferring..." : "Transfer Payout to Worker"}
               </button>
             </div>
           )}
 
-          {user?.is_admin && job.status === "payout_released" && (
+          {user?.is_admin && job.status === "payout_transferred" && (
             <div className="card !p-6 bg-purple-50 border-purple-100">
               <h3 className="text-lg font-semibold text-purple-800 mb-3">
                 🔐 Admin: Mark Job Completed
@@ -626,7 +635,7 @@ export default function JobDetailPage() {
                 Worker has received ₹{job.worker_payout.toFixed(2)}. Finalize this job.
               </div>
               <button
-                onClick={handleAdminRelease}
+                onClick={handleAdminComplete}
                 disabled={actionLoading}
                 className="btn-primary w-full !py-3 !bg-emerald-600"
               >
@@ -654,5 +663,6 @@ export default function JobDetailPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

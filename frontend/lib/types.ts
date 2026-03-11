@@ -53,6 +53,7 @@ export interface Job {
   payment_status?: string | null;
   payment_sent_at?: string | null;
   payout_released_at?: string | null;
+  cashfree_order_id?: string | null;
   employer_name?: string | null;
 }
 
@@ -62,10 +63,14 @@ export type JobStatus =
   | "work_started"
   | "work_in_progress"
   | "work_completed"
+  | "payment_pending"
+  | "payment_paid"
+  | "payout_transferred"
+  | "payment_completed"
+  // Legacy statuses (may exist in DB)
   | "payment_in_process"
   | "verification_pending"
-  | "payout_released"
-  | "payment_completed";
+  | "payout_released";
 
 export interface JobListResponse {
   jobs: Job[];
@@ -329,26 +334,34 @@ export const TIME_SPANS = [
   { value: "week", label: "Week" },
 ] as const;
 
-export const STATUS_LABELS: Record<JobStatus, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   posted: "Posted",
   labour_allotted: "Worker Assigned",
   work_started: "Work Started",
   work_in_progress: "Work in Progress",
   work_completed: "Work Completed",
+  payment_pending: "Payment Pending",
+  payment_paid: "Payment Received",
+  payout_transferred: "Payout Transferred",
+  payment_completed: "Payment Completed",
+  // Legacy labels
   payment_in_process: "Payment in Process",
   verification_pending: "Verification Pending",
   payout_released: "Payout Released",
-  payment_completed: "Payment Completed",
 };
 
-export const STATUS_COLORS: Record<JobStatus, string> = {
+export const STATUS_COLORS: Record<string, string> = {
   posted: "bg-blue-50 text-blue-700 border-blue-200",
   labour_allotted: "bg-violet-50 text-violet-700 border-violet-200",
   work_started: "bg-orange-50 text-orange-700 border-orange-200",
   work_in_progress: "bg-sky-50 text-sky-700 border-sky-200",
   work_completed: "bg-teal-50 text-teal-700 border-teal-200",
+  payment_pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  payment_paid: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  payout_transferred: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  payment_completed: "bg-emerald-50 text-emerald-800 border-emerald-300",
+  // Legacy colors
   payment_in_process: "bg-yellow-50 text-yellow-700 border-yellow-200",
   verification_pending: "bg-orange-50 text-orange-700 border-orange-200",
   payout_released: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  payment_completed: "bg-emerald-50 text-emerald-800 border-emerald-300",
 };

@@ -1,25 +1,34 @@
 "use client";
 
-import { JobStatus, STATUS_LABELS } from "@/lib/types";
+import { STATUS_LABELS } from "@/lib/types";
 
-const STAGES: { status: JobStatus; percent: number; label: string }[] = [
+const STAGES: { status: string; percent: number; label: string }[] = [
   { status: "posted", percent: 0, label: "Posted" },
   { status: "labour_allotted", percent: 15, label: "Worker Assigned" },
   { status: "work_started", percent: 30, label: "Work Started" },
   { status: "work_in_progress", percent: 50, label: "In Progress" },
   { status: "work_completed", percent: 70, label: "Work Done" },
-  { status: "payment_in_process", percent: 80, label: "Paying" },
-  { status: "verification_pending", percent: 88, label: "Verifying" },
-  { status: "payout_released", percent: 95, label: "Payout Sent" },
+  { status: "payment_pending", percent: 80, label: "Paying" },
+  { status: "payment_paid", percent: 90, label: "Paid" },
+  { status: "payout_transferred", percent: 95, label: "Payout Sent" },
   { status: "payment_completed", percent: 100, label: "Completed" },
 ];
 
+// Map legacy statuses to new ones for progress display
+const LEGACY_MAP: Record<string, string> = {
+  payment_in_process: "payment_pending",
+  verification_pending: "payment_pending",
+  verified: "payment_paid",
+  payout_released: "payout_transferred",
+};
+
 interface ProgressBarProps {
-  status: JobStatus;
+  status: string;
 }
 
 export default function ProgressBar({ status }: ProgressBarProps) {
-  const currentIndex = STAGES.findIndex((s) => s.status === status);
+  const normalizedStatus = LEGACY_MAP[status] || status;
+  const currentIndex = STAGES.findIndex((s) => s.status === normalizedStatus);
   const current = STAGES[currentIndex] || STAGES[0];
 
   return (
@@ -44,9 +53,9 @@ export default function ProgressBar({ status }: ProgressBarProps) {
           const isCompleted = i <= currentIndex;
           const isCurrent = i === currentIndex;
           const isPayment = [
-            "payment_in_process",
-            "verification_pending",
-            "payout_released",
+            "payment_pending",
+            "payment_paid",
+            "payout_transferred",
             "payment_completed",
           ].includes(stage.status);
 

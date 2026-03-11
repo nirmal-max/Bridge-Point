@@ -531,5 +531,6 @@ def _job_to_response(job: Job, current_user: User | None = None) -> JobResponse:
         payment_status=job.payment_status,
         payment_sent_at=job.payment_sent_at,
         payout_released_at=job.payout_released_at,
+        cashfree_order_id=getattr(job, 'cashfree_order_id', None),
         employer_name=employer.full_name if employer else None,
     )

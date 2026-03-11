@@ -40,11 +40,13 @@ SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")  # Gmail App Password
 RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")  # Get from https://resend.com/api-keys
 
 # ─── Commission ────────────────────────────────────────
-# Platform Custody Model: 3% retained from budget
-# Worker payout = budget × 0.97, Platform commission = budget × 0.03
-COMMISSION_RATE_EMPLOYER: float = 0.00   # No extra employer surcharge
-COMMISSION_RATE_LABOR: float = 0.00      # No labor-side deduction
-COMMISSION_RATE_PLATFORM: float = 0.03   # 3% platform custody fee
+# Dual-sided model: 4% from employer + 4% from worker = 8% platform revenue
+# Employer pays: budget × 1.04
+# Worker receives: budget × 0.96
+# Platform earns: budget × 0.08
+COMMISSION_RATE_EMPLOYER: float = float(os.getenv("COMMISSION_RATE_EMPLOYER", "0.04"))  # 4% employer surcharge
+COMMISSION_RATE_LABOR: float = float(os.getenv("COMMISSION_RATE_LABOR", "0.04"))        # 4% worker deduction
+COMMISSION_RATE_PLATFORM: float = 0.04   # Each side contributes 4%
 
 # ─── CORS ───────────────────────────────────────────────
 _cors_env = os.getenv("CORS_ORIGINS", "")
@@ -84,7 +86,24 @@ if _turn_url and _turn_user and _turn_cred:
         "credential": _turn_cred,
     })
 
-# ─── Platform Payment (UPI Custody) ───────────────────
+# ─── Cashfree Payment Gateway ─────────────────────────
+CASHFREE_APP_ID: str = os.getenv("CASHFREE_APP_ID", "")
+CASHFREE_SECRET_KEY: str = os.getenv("CASHFREE_SECRET_KEY", "")
+CASHFREE_ENVIRONMENT: str = os.getenv("CASHFREE_ENVIRONMENT", "sandbox")  # "sandbox" or "production"
+
+# Cashfree API base URLs
+CASHFREE_API_BASE: str = (
+    "https://api.cashfree.com/pg"
+    if CASHFREE_ENVIRONMENT == "production"
+    else "https://sandbox.cashfree.com/pg"
+)
+CASHFREE_PAYOUT_BASE: str = (
+    "https://payout-api.cashfree.com/payout"
+    if CASHFREE_ENVIRONMENT == "production"
+    else "https://payout-gamma.cashfree.com/payout"
+)
+
+# ─── Platform Payment (UPI Custody — DEPRECATED) ──────
 PLATFORM_UPI_ID: str = os.getenv("PLATFORM_UPI_ID", "nirmal.2007000-2@okhdfcbank")
 PLATFORM_UPI_NAME: str = os.getenv("PLATFORM_UPI_NAME", "Nirmal")
 

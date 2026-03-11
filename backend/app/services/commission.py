@@ -2,11 +2,11 @@
 Bridge Point — Commission Calculator
 Deterministic financial logic. AI must NEVER override these calculations.
 
-Platform Custody Model:
+Dual-Sided Commission Model (4% + 4%):
   Let B = budget (job amount)
-  Platform commission = B × 0.03
-  Worker payout = B - (B × 0.03) = B × 0.97
-  Employer pays = B (exact budget, no extra charge)
+  Employer pays:        B × 1.04  (budget + 4% surcharge)
+  Worker receives:      B × 0.96  (budget - 4% deduction)
+  Platform earns:       B × 0.08  (8% total)
 
 All values stored as integer paise (1 ₹ = 100 paise) to avoid
 floating-point rounding issues in financial calculations.
@@ -15,25 +15,28 @@ floating-point rounding issues in financial calculations.
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 
-from app.config import COMMISSION_RATE_PLATFORM
+from app.config import (
+    COMMISSION_RATE_EMPLOYER,
+    COMMISSION_RATE_LABOR,
+    COMMISSION_RATE_PLATFORM,
+)
 
-
-# Platform custody rate: sourced from config (default 3%)
-PLATFORM_CUSTODY_RATE = Decimal(str(COMMISSION_RATE_PLATFORM))
+EMPLOYER_RATE = Decimal(str(COMMISSION_RATE_EMPLOYER))
+LABOR_RATE = Decimal(str(COMMISSION_RATE_LABOR))
 
 
 @dataclass(frozen=True)
 class CommissionBreakdown:
     """Immutable breakdown of a job's financial components."""
     budget_paise: int                 # Original job budget in paise
-    employer_commission_paise: int    # Legacy: 0 in platform custody model
-    employer_total_paise: int         # What employer pays (= budget)
-    labor_commission_paise: int       # Legacy: 0 in platform custody model
-    labor_receives_paise: int         # Legacy alias for worker_payout
-    platform_earning_paise: int       # Platform commission (3%)
-    # ─── Platform Custody fields ────────────────────────
-    platform_commission_paise: int    # budget × 0.03
-    worker_payout_paise: int          # budget × 0.97
+    employer_commission_paise: int    # What employer pays extra (4%)
+    employer_total_paise: int         # Total employer pays (budget + 4%)
+    labor_commission_paise: int       # What worker pays Platform (4%)
+    labor_receives_paise: int         # What worker receives (budget - 4%)
+    platform_earning_paise: int       # Total platform revenue (8%)
+    # ─── Aliases for backward compat ─────────────────────
+    platform_commission_paise: int    # Same as platform_earning_paise
+    worker_payout_paise: int          # Same as labor_receives_paise
 
     @property
     def budget_rupees(self) -> Decimal:
@@ -71,29 +74,39 @@ class CommissionBreakdown:
 
 def calculate_commission(budget_rupees: float) -> CommissionBreakdown:
     """
-    Deterministic commission calculation — Platform Custody Model.
+    Deterministic commission calculation — Dual-Sided 4% + 4% Model.
 
     Args:
-        budget_rupees: The base job budget in ₹ (e.g., 700.0)
+        budget_rupees: The base job budget in ₹ (e.g., 800.0)
 
     Returns:
         CommissionBreakdown with all financial components in paise.
 
-    Example for ₹700 job:
-        Employer pays:         ₹700.00 (exact budget)
-        Platform commission:   ₹21.00 (3%)
-        Worker payout:         ₹679.00 (97%)
+    Example for ₹800 job:
+        Employer extra fee:    ₹32.00  (4%)
+        Employer total pays:   ₹832.00
+        Worker deducted fee:   ₹32.00  (4%)
+        Worker receives:       ₹768.00
+        Total Platform logic:  ₹64.00  (8%)
     """
     budget = Decimal(str(budget_rupees))
 
-    # Platform custody: 3% retained
-    platform_commission = (budget * PLATFORM_CUSTODY_RATE).quantize(
+    # Calculate both commissions
+    employer_commission = (budget * EMPLOYER_RATE).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
-    worker_payout = budget - platform_commission
+    labor_commission = (budget * LABOR_RATE).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
 
-    # Employer pays exact budget (no extra surcharge)
-    employer_total = budget
+    # Employer pays budget + 4% surcharge
+    employer_total = budget + employer_commission
+
+    # Worker receives budget - 4% deduction
+    worker_payout = budget - labor_commission
+
+    # Platform earns exactly the sum of both commissions
+    platform_earning = employer_commission + labor_commission
 
     # Convert to paise (integer) for storage
     def to_paise(amount: Decimal) -> int:
@@ -101,11 +114,11 @@ def calculate_commission(budget_rupees: float) -> CommissionBreakdown:
 
     return CommissionBreakdown(
         budget_paise=to_paise(budget),
-        employer_commission_paise=0,               # No extra employer charge
+        employer_commission_paise=to_paise(employer_commission),
         employer_total_paise=to_paise(employer_total),
-        labor_commission_paise=0,                   # No labor-side deduction label
+        labor_commission_paise=to_paise(labor_commission),
         labor_receives_paise=to_paise(worker_payout),
-        platform_earning_paise=to_paise(platform_commission),
-        platform_commission_paise=to_paise(platform_commission),
+        platform_earning_paise=to_paise(platform_earning),
+        platform_commission_paise=to_paise(platform_earning),
         worker_payout_paise=to_paise(worker_payout),
     )

@@ -71,6 +71,7 @@ class JobResponse(BaseModel):
     payment_status: Optional[str] = None
     payment_sent_at: Optional[datetime] = None
     payout_released_at: Optional[datetime] = None
+    cashfree_order_id: Optional[str] = None
 
     employer_name: Optional[str] = None
 
