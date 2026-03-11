@@ -39,7 +39,14 @@ interface CallContextType {
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const RAILWAY_BACKEND = "https://bridge-point-production.up.railway.app";
+
+// In production, WebSocket must connect directly to Railway (Vercel proxy doesn't support WS).
+// Locally, connect to the dev backend.
+const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
+const API_BASE = isProduction
+  ? RAILWAY_BACKEND
+  : (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000");
 const WS_BASE = API_BASE.replace(/^http/, "ws");
 
 export function CallProvider({ children }: { children: ReactNode }) {
