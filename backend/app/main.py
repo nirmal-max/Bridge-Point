@@ -35,7 +35,7 @@ from app.models.password_reset import PasswordReset
 from app.models.payment import Payment
 
 # Import routers
-from app.routers import auth, jobs, applications, reviews, favorites, payments, websocket, calls, messages, private_requests, password_reset, cashfree_webhook
+from app.routers import auth, jobs, applications, reviews, favorites, payments, websocket, calls, messages, private_requests, password_reset
 
 # ─── Create tables ──────────────────────────────────────
 try:
@@ -72,7 +72,7 @@ app.include_router(applications.router)
 app.include_router(reviews.router)
 app.include_router(favorites.router)
 app.include_router(payments.router)
-app.include_router(cashfree_webhook.router)
+
 app.include_router(websocket.router)
 app.include_router(calls.router)
 app.include_router(messages.router)
