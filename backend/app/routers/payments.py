@@ -555,8 +555,134 @@ def get_platform_info():
     return {
         "payment_gateway": "cashfree",
         "environment": CASHFREE_ENVIRONMENT,
-        "upi_id": PLATFORM_UPI_ID,      # Legacy
-        "upi_name": PLATFORM_UPI_NAME,   # Legacy
+        "upi_id": PLATFORM_UPI_ID,
+        "upi_name": PLATFORM_UPI_NAME,
+    }
+
+
+# ─── 8. Employer: Mark UPI Payment Sent ─────────────────
+
+class MarkPaymentSentBody(BaseModel):
+    upi_reference: str  # UPI Transaction Reference (UTR)
+
+@router.post("/{job_id}/mark-sent")
+async def mark_payment_sent(
+    job_id: int,
+    body: MarkPaymentSentBody,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_employer),
+):
+    """
+    Employer confirms they sent UPI payment to the platform.
+    Stores the UTR reference. Job stays in payment_pending until admin verifies.
+    """
+    job = db.query(Job).filter(Job.id == job_id, Job.employer_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found or not yours")
+
+    if job.status not in (JobStatus.PAYMENT_PENDING.value, "payment_in_process"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Job must be in 'payment_pending' status. Current: {job.status}",
+        )
+
+    # Validate UTR: non-empty, numeric, 12+ chars
+    utr = body.upi_reference.strip()
+    if not utr:
+        raise HTTPException(status_code=400, detail="UPI Transaction Reference (UTR) is required.")
+    if not utr.replace(" ", "").isdigit():
+        raise HTTPException(status_code=400, detail="UTR must contain only digits.")
+    if len(utr.replace(" ", "")) < 12:
+        raise HTTPException(status_code=400, detail="UTR must be at least 12 digits.")
+
+    now = datetime.now(timezone.utc)
+
+    job.payment_status = "sent"
+    job.payment_sent_at = now
+    job.updated_at = now
+
+    # Store UTR in commission ledger
+    ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
+    if ledger:
+        ledger.upi_reference = utr
+
+    db.commit()
+
+    # Notify
+    await manager.send_to_user(current_user.id, {
+        "type": "payment:sent",
+        "job_id": job.id,
+        "message": f"Payment marked as sent for \"{job.title}\". Awaiting admin verification.",
+    })
+
+    return {
+        "message": "Payment marked as sent. Awaiting admin verification.",
+        "status": job.status,
+        "payment_sent_at": now.isoformat(),
+    }
+
+
+# ─── 9. Admin: Verify UPI Payment ───────────────────────
+
+@router.post("/{job_id}/verify-upi")
+async def admin_verify_upi(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """
+    Admin verifies UPI payment received (checks UTR in bank statement).
+    Transitions: payment_pending → payment_paid.
+    """
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status not in (JobStatus.PAYMENT_PENDING.value, "payment_in_process",
+                          "verification_pending"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Job must be in payment_pending status. Current: {job.status}",
+        )
+
+    now = datetime.now(timezone.utc)
+
+    transition = StatusTransition(
+        job_id=job.id,
+        from_status=job.status,
+        to_status=JobStatus.PAYMENT_PAID.value,
+        changed_by_user_id=current_user.id,
+    )
+    db.add(transition)
+
+    job.status = JobStatus.PAYMENT_PAID.value
+    job.payment_status = "paid"
+    job.updated_at = now
+
+    ledger = db.query(CommissionLedger).filter(CommissionLedger.job_id == job.id).first()
+    if ledger:
+        ledger.payment_status = "verified"
+
+    db.commit()
+
+    # Notify both
+    await manager.send_to_user(job.employer_id, {
+        "type": "payment:verified",
+        "job_id": job.id,
+        "message": f"Payment for \"{job.title}\" verified by admin.",
+    })
+    if job.allotted_labor_id:
+        await manager.send_to_user(job.allotted_labor_id, {
+            "type": "payment:verified",
+            "job_id": job.id,
+            "message": f"Payment for \"{job.title}\" verified. Payout coming soon!",
+        })
+
+    return {
+        "message": "Payment verified.",
+        "status": job.status,
+        "worker_payout": job.worker_payout_paise / 100,
+        "platform_commission": job.platform_commission_paise / 100,
     }
 
 
