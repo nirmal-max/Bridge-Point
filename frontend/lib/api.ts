@@ -298,45 +298,7 @@ class ApiClient {
     );
   }
 
-  /* ─── Cashfree Payments ─── */
-  createPaymentOrder(jobId: number) {
-    return this.request<{
-      order_id: string; payment_session_id: string;
-      amount: number; currency: string;
-      job_id: number; employer_total: number;
-      platform_commission: number; worker_payout: number;
-      status: string; environment: string;
-    }>("/api/payments/create-order", {
-      method: "POST",
-      body: JSON.stringify({ job_id: jobId }),
-    });
-  }
-
-  verifyPayment(data: {
-    job_id: number;
-    cashfree_order_id: string;
-  }) {
-    return this.request<{
-      message: string; status: string;
-      payment_id: string;
-      worker_payout: number; platform_commission: number;
-    }>("/api/payments/verify", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  adminInitiateTransfer(jobId: number) {
-    return this.request<{
-      message: string; status: string;
-      worker_payout: number; platform_commission: number;
-      payout_transferred_at: string;
-    }>("/api/payments/initiate-transfer", {
-      method: "POST",
-      body: JSON.stringify({ job_id: jobId }),
-    });
-  }
-
+  /* ─── Platform Custody Payments (UPI QR) ─── */
   adminMarkCompleted(jobId: number) {
     return this.request<{ message: string; status: string }>(
       `/api/payments/${jobId}/complete`,
@@ -344,7 +306,6 @@ class ApiClient {
     );
   }
 
-  /* ─── Legacy Platform Custody Payments ─── */
   initiatePayment(jobId: number, paymentMethod: string) {
     return this.request<{
       message: string; status: string;

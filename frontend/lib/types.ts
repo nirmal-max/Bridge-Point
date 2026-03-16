@@ -340,14 +340,15 @@ export const STATUS_LABELS: Record<string, string> = {
   work_started: "Work Started",
   work_in_progress: "Work in Progress",
   work_completed: "Work Completed",
+  payment_in_process: "Payment in Process",
+  verification_pending: "Verification Pending",
+  verified: "Payment Verified",
+  payout_released: "Payout Released",
+  payment_completed: "Payment Completed",
+  // Legacy Cashfree labels
   payment_pending: "Payment Pending",
   payment_paid: "Payment Received",
   payout_transferred: "Payout Transferred",
-  payment_completed: "Payment Completed",
-  // Legacy labels
-  payment_in_process: "Payment in Process",
-  verification_pending: "Verification Pending",
-  payout_released: "Payout Released",
 };
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -356,12 +357,13 @@ export const STATUS_COLORS: Record<string, string> = {
   work_started: "bg-orange-50 text-orange-700 border-orange-200",
   work_in_progress: "bg-sky-50 text-sky-700 border-sky-200",
   work_completed: "bg-teal-50 text-teal-700 border-teal-200",
+  payment_in_process: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  verification_pending: "bg-amber-50 text-amber-700 border-amber-200",
+  verified: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  payout_released: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  payment_completed: "bg-emerald-50 text-emerald-800 border-emerald-300",
+  // Legacy Cashfree colors
   payment_pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
   payment_paid: "bg-indigo-50 text-indigo-700 border-indigo-200",
   payout_transferred: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  payment_completed: "bg-emerald-50 text-emerald-800 border-emerald-300",
-  // Legacy colors
-  payment_in_process: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  verification_pending: "bg-orange-50 text-orange-700 border-orange-200",
-  payout_released: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };

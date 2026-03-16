@@ -86,24 +86,7 @@ if _turn_url and _turn_user and _turn_cred:
         "credential": _turn_cred,
     })
 
-# ─── Cashfree Payment Gateway ─────────────────────────
-CASHFREE_APP_ID: str = os.getenv("CASHFREE_APP_ID", "")
-CASHFREE_SECRET_KEY: str = os.getenv("CASHFREE_SECRET_KEY", "")
-CASHFREE_ENVIRONMENT: str = os.getenv("CASHFREE_ENVIRONMENT", "sandbox")  # "sandbox" or "production"
-
-# Cashfree API base URLs
-CASHFREE_API_BASE: str = (
-    "https://api.cashfree.com/pg"
-    if CASHFREE_ENVIRONMENT == "production"
-    else "https://sandbox.cashfree.com/pg"
-)
-CASHFREE_PAYOUT_BASE: str = (
-    "https://payout-api.cashfree.com/payout"
-    if CASHFREE_ENVIRONMENT == "production"
-    else "https://payout-gamma.cashfree.com/payout"
-)
-
-# ─── Platform Payment (UPI Custody — DEPRECATED) ──────
+# ─── Platform Payment (UPI Custody) ────────────────────
 PLATFORM_UPI_ID: str = os.getenv("PLATFORM_UPI_ID", "nirmal.2007000-2@okhdfcbank")
 PLATFORM_UPI_NAME: str = os.getenv("PLATFORM_UPI_NAME", "Nirmal")
 
