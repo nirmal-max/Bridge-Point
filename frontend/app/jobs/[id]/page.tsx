@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
+import { load as loadCashfree } from "@cashfreepayments/cashfree-js";
 import {
   Job,
   STATUS_LABELS,
@@ -35,7 +36,6 @@ export default function JobDetailPage() {
   const [toast, setToast] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "cash">("upi");
   const [upiRef, setUpiRef] = useState("");
-  const [paymentInitiated, setPaymentInitiated] = useState(false);
 
   const jobId = Number(id);
 
@@ -102,6 +102,79 @@ export default function JobDetailPage() {
     }
   };
 
+  /* ─── Cashfree Checkout via @cashfreepayments/cashfree-js ─── */
+  const handlePayment = async () => {
+    setActionLoading(true);
+    setError("");
+    try {
+      // Step 1: Create Cashfree order on backend
+      console.log("[Payment] Creating Cashfree order for job", jobId);
+      const orderData = await api.createPaymentOrder(jobId);
+      console.log("[Payment] Order created:", orderData);
+
+      if (!orderData.payment_session_id) {
+        setError("Payment session not available. Please try again.");
+        setActionLoading(false);
+        return;
+      }
+
+      // Step 2: Load Cashfree JS SDK
+      const mode = orderData.environment === "production" ? "production" : "sandbox";
+      console.log("[Payment] Loading Cashfree SDK in", mode, "mode");
+      const cashfree = await loadCashfree({ mode });
+
+      if (!cashfree) {
+        setError("Failed to load payment gateway. Please refresh and try again.");
+        setActionLoading(false);
+        return;
+      }
+      console.log("[Payment] Cashfree SDK loaded, opening checkout modal");
+
+      // Step 3: Open Cashfree Checkout Modal
+      const result = await cashfree.checkout({
+        paymentSessionId: orderData.payment_session_id,
+        redirectTarget: "_modal",
+      });
+
+      console.log("[Payment] Checkout result:", result);
+
+      if (result.error) {
+        console.error("[Payment] Checkout error:", result.error);
+        setError(result.error.message || "Payment failed. Please try again.");
+        setActionLoading(false);
+        return;
+      }
+
+      if (result.redirect) {
+        console.log("[Payment] Redirecting for payment processing...");
+        return;
+      }
+
+      if (result.paymentDetails) {
+        console.log("[Payment] Payment completed, verifying...", result.paymentDetails);
+        // Step 4: Verify payment on backend
+        try {
+          await api.verifyPayment({
+            job_id: jobId,
+            cashfree_order_id: orderData.order_id,
+          });
+          const j = await api.getJob(jobId);
+          setJob(j);
+          setToast("Payment successful! Verified securely.");
+        } catch (verifyErr: unknown) {
+          console.error("[Payment] Verification error:", verifyErr);
+          setError(verifyErr instanceof Error ? verifyErr.message : "Payment verification failed");
+        }
+        setActionLoading(false);
+      }
+    } catch (err: unknown) {
+      console.error("[Payment] Fatal error:", err);
+      setError(err instanceof Error ? err.message : "Payment initiation failed. Check console for details.");
+      setActionLoading(false);
+    }
+  };
+
+  /* ─── UPI Manual: Initiate ─── */
   const handleInitiatePayment = async () => {
     setActionLoading(true);
     setError("");
@@ -109,7 +182,6 @@ export default function JobDetailPage() {
       await api.initiatePayment(jobId, paymentMethod);
       const j = await api.getJob(jobId);
       setJob(j);
-      setPaymentInitiated(true);
       setToast("Payment initiated. Please pay to the UPI ID shown.");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Payment initiation failed");
@@ -118,6 +190,7 @@ export default function JobDetailPage() {
     }
   };
 
+  /* ─── UPI Manual: Mark Sent ─── */
   const handleMarkSent = async () => {
     setActionLoading(true);
     setError("");
@@ -444,17 +517,17 @@ export default function JobDetailPage() {
           )}
 
           {/* ═══════════════════════════════════════════════════════ */}
-          {/* UPI PAYMENT FLOW                                          */}
+          {/* PAYMENT FLOW                                             */}
           {/* ═══════════════════════════════════════════════════════ */}
 
-          {/* Step 1: Employer initiates UPI payment */}
+          {/* Employer pays via Cashfree Checkout */}
           {isOwner && job.status === "work_completed" && (
             <div className="card !p-6">
               <h3 className="text-lg font-semibold text-[var(--color-bp-black)] mb-3">
-                💳 Pay via UPI
+                💳 Pay Securely
               </h3>
               <p className="text-sm text-[var(--color-bp-gray-500)] mb-4">
-                Platform fee: 4%. Worker receives ₹{job.worker_payout.toFixed(2)}.
+                Pay via UPI, Card, or Netbanking. Platform fee: 4%. Worker receives ₹{job.worker_payout.toFixed(2)}.
               </p>
               <div className="bg-[var(--color-bp-gray-100)] rounded-xl p-4 mb-4 space-y-2">
                 <div className="flex justify-between text-sm">
@@ -471,38 +544,71 @@ export default function JobDetailPage() {
                 </div>
               </div>
               <button
-                onClick={handleInitiatePayment}
+                onClick={handlePayment}
                 disabled={actionLoading}
-                className="btn-primary w-full !py-4 text-lg"
+                className="btn-primary w-full !py-4 text-lg flex items-center justify-center gap-2"
               >
-                {actionLoading ? "Processing..." : "Proceed to Pay"}
+                {actionLoading ? (
+                  "Processing..."
+                ) : (
+                  <>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                      <line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                    Pay ₹{job.employer_total.toFixed(2)} Securely
+                  </>
+                )}
               </button>
             </div>
           )}
 
-          {/* Step 2: Show Platform UPI QR + UTR Input */}
+          {/* Payment Pending — re-attempt checkout or UPI QR fallback */}
           {isOwner && (job.status === "payment_pending" || job.status === "payment_in_process") && job.payment_status !== "sent" && (
-            <div className="card !p-6 text-center">
+            <div className="card !p-6">
               <h3 className="text-lg font-semibold text-[var(--color-bp-black)] mb-3">
-                📱 Scan & Pay
+                Complete Payment
               </h3>
-              <div className="bg-white border-2 border-dashed border-[var(--color-bp-gray-300)] rounded-2xl p-6 mb-4 inline-block">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?data=upi://pay?pa=nirmal.2007000-2@okhdfcbank%26pn=BridgePoint%26am=${job.employer_total.toFixed(2)}%26cu=INR&size=200x200`}
-                  alt="UPI QR Code"
-                  width={200}
-                  height={200}
-                  className="mx-auto"
-                />
-              </div>
-              <div className="text-sm text-[var(--color-bp-gray-500)] mb-2">
-                UPI ID: <strong className="text-[var(--color-bp-black)]">nirmal.2007000-2@okhdfcbank</strong>
-              </div>
-              <div className="text-2xl font-bold text-[var(--color-bp-black)] mb-4">
-                ₹{job.employer_total.toFixed(2)}
+              <p className="text-sm text-[var(--color-bp-gray-500)] mb-4">
+                Click below to complete payment, or pay manually via UPI and enter the reference number.
+              </p>
+
+              {/* Cashfree retry */}
+              <button
+                onClick={handlePayment}
+                disabled={actionLoading}
+                className="btn-primary w-full !py-4 text-lg mb-4"
+              >
+                {actionLoading ? "Processing..." : `Pay ₹${job.employer_total.toFixed(2)} Securely`}
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-[var(--color-bp-gray-200)]" />
+                <span className="text-xs text-[var(--color-bp-gray-400)] uppercase">or pay via UPI manually</span>
+                <div className="flex-1 h-px bg-[var(--color-bp-gray-200)]" />
               </div>
 
-              {/* UTR Reference Input */}
+              {/* Manual UPI QR */}
+              <div className="text-center mb-4">
+                <div className="bg-white border-2 border-dashed border-[var(--color-bp-gray-300)] rounded-2xl p-4 mb-3 inline-block">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?data=upi://pay?pa=nirmal.2007000-2@okhdfcbank%26pn=BridgePoint%26am=${job.employer_total.toFixed(2)}%26cu=INR&size=180x180`}
+                    alt="UPI QR Code"
+                    width={180}
+                    height={180}
+                    className="mx-auto"
+                  />
+                </div>
+                <div className="text-sm text-[var(--color-bp-gray-500)]">
+                  UPI ID: <strong className="text-[var(--color-bp-black)]">nirmal.2007000-2@okhdfcbank</strong>
+                </div>
+                <div className="text-xl font-bold text-[var(--color-bp-black)] mt-1">
+                  ₹{job.employer_total.toFixed(2)}
+                </div>
+              </div>
+
+              {/* UTR Reference input */}
               <div className="mb-4 text-left">
                 <label className="block text-sm font-medium text-[var(--color-bp-gray-700)] mb-1.5">
                   UPI Transaction Reference (UTR) <span className="text-red-500">*</span>
@@ -516,9 +622,7 @@ export default function JobDetailPage() {
                   maxLength={22}
                 />
                 {upiRef.length > 0 && upiRef.length < 12 && (
-                  <p className="text-xs text-red-500 mt-1">
-                    UTR must be at least 12 digits.
-                  </p>
+                  <p className="text-xs text-red-500 mt-1">UTR must be at least 12 digits.</p>
                 )}
                 <p className="text-xs text-[var(--color-bp-gray-500)] mt-1">
                   Find this in your UPI app → Transaction History → Transaction Details.
@@ -527,14 +631,14 @@ export default function JobDetailPage() {
               <button
                 onClick={handleMarkSent}
                 disabled={actionLoading || upiRef.length < 12}
-                className="btn-primary w-full !py-4"
+                className="w-full py-3 rounded-xl border-2 border-[var(--color-bp-gray-300)] text-[var(--color-bp-gray-700)] font-medium hover:bg-[var(--color-bp-gray-100)] transition-colors"
               >
-                {actionLoading ? "Marking..." : "✓ I Have Sent the Payment"}
+                {actionLoading ? "Marking..." : "✓ I Have Sent via UPI"}
               </button>
             </div>
           )}
 
-          {/* Step 3: Payment sent, awaiting admin verification */}
+          {/* Payment sent, awaiting admin verification */}
           {isOwner && (job.status === "payment_pending" || job.status === "payment_in_process" || job.status === "verification_pending") && job.payment_status === "sent" && (
             <div className="card !p-8 text-center bg-amber-50 border-amber-100">
               <div className="text-4xl mb-3">⏳</div>
