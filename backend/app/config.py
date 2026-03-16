@@ -13,10 +13,10 @@ DATABASE_DIR = BASE_DIR / "data"
 DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── Database ───────────────────────────────────────────
-# SQLite for local dev; set DATABASE_URL env var for Supabase PostgreSQL
+# SQLite for local dev; set DATABASE_URL env var for PostgreSQL in production
 _db_url = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_DIR / 'bridgepoint.db'}")
 
-# Supabase/Heroku use 'postgres://' but SQLAlchemy requires 'postgresql://'
+# Some PostgreSQL providers use 'postgres://' but SQLAlchemy requires 'postgresql://'
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 

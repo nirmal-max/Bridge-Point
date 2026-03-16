@@ -17,7 +17,7 @@ engine_kwargs = {"echo": False}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 else:
-    # PostgreSQL (Supabase) connection pool settings
+    # PostgreSQL connection pool settings
     engine_kwargs.update({
         "pool_size": 5,
         "max_overflow": 10,

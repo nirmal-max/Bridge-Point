@@ -63,14 +63,15 @@ export type JobStatus =
   | "work_started"
   | "work_in_progress"
   | "work_completed"
-  | "payment_pending"
-  | "payment_paid"
-  | "payout_transferred"
-  | "payment_completed"
-  // Legacy statuses (may exist in DB)
   | "payment_in_process"
   | "verification_pending"
-  | "payout_released";
+  | "verified"
+  | "payout_released"
+  | "payment_completed"
+  // Legacy Cashfree statuses (may exist in old DB rows)
+  | "payment_pending"
+  | "payment_paid"
+  | "payout_transferred";
 
 export interface JobListResponse {
   jobs: Job[];

@@ -99,7 +99,8 @@ export default function JobDetailPage() {
     }
   };
 
-  const handlePayment = async () => {
+  const handlePayment = async (e: React.MouseEvent) => {
+    e.preventDefault();
     setActionLoading(true);
     try {
       await api.initiatePayment(jobId, paymentMethod);
@@ -113,7 +114,8 @@ export default function JobDetailPage() {
     }
   };
 
-  const handleMarkSent = async () => {
+  const handleMarkSent = async (e: React.MouseEvent) => {
+    e.preventDefault();
     setActionLoading(true);
     try {
       await api.markPaymentSent(jobId, upiRef);
@@ -464,6 +466,7 @@ export default function JobDetailPage() {
                 </button>
               </div>
               <button
+                type="button"
                 onClick={handlePayment}
                 disabled={actionLoading}
                 className="btn-primary w-full !py-3"
@@ -525,6 +528,7 @@ export default function JobDetailPage() {
               </div>
 
               <button
+                type="button"
                 onClick={handleMarkSent}
                 disabled={actionLoading || upiRef.length < 12}
                 className="btn-primary w-full !py-4"
