@@ -49,6 +49,8 @@ COMMISSION_RATE_LABOR: float = float(os.getenv("COMMISSION_RATE_LABOR", "0.04"))
 COMMISSION_RATE_PLATFORM: float = 0.04   # Each side contributes 4%
 
 # ─── CORS ───────────────────────────────────────────────
+# Set CORS_ORIGINS env var to your Render frontend URL in production.
+# Example: https://bridgepoint-web.onrender.com
 _cors_env = os.getenv("CORS_ORIGINS", "")
 CORS_ORIGINS: list[str] = [
     o.strip() for o in _cors_env.split(",") if o.strip()

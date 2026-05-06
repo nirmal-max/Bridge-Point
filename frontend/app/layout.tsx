@@ -4,7 +4,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { CallProvider } from "@/lib/call-context";
 import Header from "@/components/Header";
 import CallOverlay from "@/components/CallOverlay";
-import { Analytics } from "@vercel/analytics/react";
+
 
 export const metadata: Metadata = {
   title: "Bridge Point — Micro-Employment Platform",
@@ -47,7 +47,7 @@ export default function RootLayout({
             <CallOverlay />
           </CallProvider>
         </AuthProvider>
-        <Analytics />
+
       </body>
     </html>
   );

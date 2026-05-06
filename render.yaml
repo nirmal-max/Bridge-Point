@@ -1,0 +1,63 @@
+# ─── Bridge Point — Render.com Blueprint ───
+# Deploy both frontend and backend as Web Services.
+# https://render.com/docs/blueprint-spec
+
+services:
+  # ─── Backend (FastAPI + Python) ─────────────────────────
+  - type: web
+    name: bridgepoint-api
+    runtime: python
+    region: singapore   # Closest to India
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false      # Set manually in Render dashboard (use Render PostgreSQL)
+      - key: JWT_SECRET_KEY
+        generateValue: true   # Auto-generate a secure random secret
+      - key: CORS_ORIGINS
+        sync: false      # Set to your frontend Render URL after first deploy
+      - key: ADMIN_EMAILS
+        value: bridgepoint.team@gmail.com
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: SMTP_EMAIL
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: PLATFORM_UPI_ID
+        value: nirmal.2007000-2@okhdfcbank
+      - key: PLATFORM_UPI_NAME
+        value: Nirmal
+
+  # ─── Frontend (Next.js + Node) ──────────────────────────
+  - type: web
+    name: bridgepoint-web
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: node .next/standalone/server.js
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false      # Set to backend Render URL (e.g., https://bridgepoint-api.onrender.com)
+      - key: PORT
+        value: "3000"
+      - key: HOSTNAME
+        value: "0.0.0.0"
+
+  # ─── PostgreSQL Database (Optional) ────────────────────
+  # Uncomment below to auto-provision a Render PostgreSQL database.
+  # Then set DATABASE_URL on the backend service to the internal URL.
+  #
+  # databases:
+  #   - name: bridgepoint-db
+  #     plan: free
+  #     region: singapore
+  #     databaseName: bridgepoint
+  #     user: bridgepoint

@@ -1,13 +1,8 @@
 /* ─── Bridge Point — API Client ─── */
 
-// In production (Vercel), use the /backend proxy to avoid DNS/CORS issues.
-// Locally, use the direct backend URL.
-const isServer = typeof window === "undefined";
-const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
-
-let API_BASE = isProduction
-  ? "/backend"  // Vercel rewrite proxies this to Railway
-  : (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000");
+// Use NEXT_PUBLIC_API_URL in production (set to your Render backend URL).
+// Locally, defaults to http://127.0.0.1:8000.
+let API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 // Remove trailing slash
 API_BASE = API_BASE.replace(/\/$/, '');

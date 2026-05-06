@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 // Use the same API base URL logic as api.ts
-const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
-const API_URL = isProduction
-  ? "/backend"
-  : (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000");
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 type Step = "email" | "otp" | "reset" | "done";
 
